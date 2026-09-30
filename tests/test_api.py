@@ -47,6 +47,18 @@ def test_api_traffic_valid():
     assert "data" in data
 
 
+def test_api_traffic_all_interfaces():
+    config_res = client.get("/api/config").json()
+    period = config_res["default_period"]
+
+    response = client.get(f"/api/traffic?interface=all&period={period}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["interface"] == "all"
+    assert data["period"] == period
+    assert "data" in data
+
+
 def test_api_traffic_invalid_interface():
     response = client.get("/api/traffic?interface=invalid_iface_xyz&period=15m")
     assert response.status_code == 400

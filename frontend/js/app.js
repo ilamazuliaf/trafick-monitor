@@ -164,8 +164,14 @@
     const config = state.config;
     if (!config) return;
 
-    // 1. Build Interface Dropdown (prd.md Section 34)
+    // 1. Build Interface Dropdown (All Interfaces + dynamic list)
     elements.interfaceSelect.innerHTML = '';
+
+    const allOpt = document.createElement('option');
+    allOpt.value = 'all';
+    allOpt.textContent = 'All Interfaces (Total)';
+    elements.interfaceSelect.appendChild(allOpt);
+
     config.interfaces.forEach((ifaceName) => {
       const opt = document.createElement('option');
       opt.value = ifaceName;
@@ -173,11 +179,9 @@
       elements.interfaceSelect.appendChild(opt);
     });
 
-    // Default interface choice
-    if (config.interfaces.length > 0) {
-      state.selectedInterface = config.interfaces[0];
-      elements.interfaceSelect.value = state.selectedInterface;
-    }
+    // Default interface choice is 'all'
+    state.selectedInterface = 'all';
+    elements.interfaceSelect.value = 'all';
 
     // 2. Build Period Dropdown (prd.md Section 12, 19, 35)
     elements.periodSelect.innerHTML = '';
@@ -628,6 +632,7 @@
     const data = [];
 
     const baseRates = {
+      "all": { rx: 640000000, tx: 115000000 },
       "ether1-BAROKAH": { rx: 120000000, tx: 18000000 },
       "ether2-BIZ": { rx: 240000000, tx: 40000000 },
       "ether3-WAHED": { rx: 280000000, tx: 55000000 }

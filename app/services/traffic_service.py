@@ -19,8 +19,9 @@ class TrafficService:
         Validates interface and period, queries database within time window,
         and returns downsampled traffic points.
         """
-        # 1. Validate Interface (prd.md Section 28)
-        if interface_name not in settings.monitored_interfaces:
+        # 1. Validate Interface (prd.md Section 28 + All Interfaces support)
+        is_all = (interface_name.lower() == "all")
+        if not is_all and interface_name not in settings.monitored_interfaces:
             raise ValueError(
                 f"Interface '{interface_name}' is not in monitored interfaces list: {settings.monitored_interfaces}"
             )

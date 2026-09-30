@@ -75,20 +75,33 @@ class TrafficRepository:
     ) -> List[TrafficPoint]:
         """
         Queries traffic points within a time window [start_iso, end_iso].
+        Supports 'all' to return total aggregated traffic across all interfaces.
         Downsamples results if point count exceeds max_points (prd.md Section 29).
         """
         conn = get_db_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT timestamp, rx_bps, tx_bps
-                FROM traffic_samples
-                WHERE interface_name = ? AND timestamp >= ? AND timestamp <= ?
-                ORDER BY timestamp ASC;
-                """,
-                (interface_name, start_iso, end_iso)
-            )
+            if interface_name.lower() == "all":
+                cursor.execute(
+                    """
+                    SELECT timestamp, SUM(rx_bps) as rx_bps, SUM(tx_bps) as tx_bps
+                    FROM traffic_samples
+                    WHERE timestamp >= ? AND timestamp <= ?
+                    GROUP BY timestamp
+                    ORDER BY timestamp ASC;
+                    """,
+                    (start_iso, end_iso)
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT timestamp, rx_bps, tx_bps
+                    FROM traffic_samples
+                    WHERE interface_name = ? AND timestamp >= ? AND timestamp <= ?
+                    ORDER BY timestamp ASC;
+                    """,
+                    (interface_name, start_iso, end_iso)
+                )
             rows = cursor.fetchall()
             if not rows:
                 return []
@@ -96,8 +109,8 @@ class TrafficRepository:
             points = [
                 TrafficPoint(
                     timestamp=row["timestamp"],
-                    rx_bps=round(float(row["rx_bps"]), 2),
-                    tx_bps=round(float(row["tx_bps"]), 2)
+                    rx_bps=round(float(row["rx_bps"] or 0), 2),
+                    tx_bps=round(float(row["tx_bps"] or 0), 2)
                 )
                 for row in rows
             ]
