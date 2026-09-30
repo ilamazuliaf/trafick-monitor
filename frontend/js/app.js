@@ -326,6 +326,13 @@
 
   function renderInterfaceCardsSkeleton(interfacesList) {
     elements.interfaceCardsContainer.innerHTML = '';
+    
+    // Skeleton for All Interfaces card
+    const allSkeleton = document.createElement('div');
+    allSkeleton.className = 'skeleton-card';
+    allSkeleton.style.height = '120px';
+    elements.interfaceCardsContainer.appendChild(allSkeleton);
+
     interfacesList.forEach((name) => {
       const card = document.createElement('div');
       card.className = 'skeleton-card';
@@ -337,6 +344,61 @@
   function renderInterfaceCards(interfaceList) {
     elements.interfaceCardsContainer.innerHTML = '';
 
+    // Calculate aggregated total RX and TX rates across all interfaces
+    let totalRx = 0;
+    let totalTx = 0;
+    let anyUp = false;
+
+    interfaceList.forEach((iface) => {
+      totalRx += (iface.rx_bps || 0);
+      totalTx += (iface.tx_bps || 0);
+      const st = (iface.status || 'down').toLowerCase();
+      if (st === 'running' || st === 'up') anyUp = true;
+    });
+
+    // 1. All Interfaces (Total) Card
+    const allCard = document.createElement('div');
+    const isAllSelected = state.selectedInterface === 'all';
+    allCard.className = `interface-card ${isAllSelected ? 'active' : ''}`;
+    
+    allCard.innerHTML = `
+      <div class="card-header">
+        <div class="interface-name">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          All Interfaces
+        </div>
+        <span class="interface-status-badge ${anyUp ? 'up' : 'down'}">${anyUp ? 'TOTAL' : 'OFFLINE'}</span>
+      </div>
+      <div class="metrics-container">
+        <div class="metric-box rx">
+          <div class="metric-label rx">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Total RX
+          </div>
+          <div class="metric-value">${formatBitrate(totalRx)}</div>
+        </div>
+        <div class="metric-box tx">
+          <div class="metric-label tx">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="17 14 12 9 7 14"></polyline><line x1="12" y1="21" x2="12" y2="9"></line></svg>
+            Total TX
+          </div>
+          <div class="metric-value">${formatBitrate(totalTx)}</div>
+        </div>
+      </div>
+    `;
+
+    allCard.addEventListener('click', () => {
+      state.selectedInterface = 'all';
+      elements.interfaceSelect.value = 'all';
+      updateActiveCardHighlight();
+      fetchTrafficData();
+    });
+
+    elements.interfaceCardsContainer.appendChild(allCard);
+
+    // 2. Individual Interface Cards
     interfaceList.forEach((iface) => {
       const card = document.createElement('div');
       const isSelected = iface.name === state.selectedInterface;
@@ -392,10 +454,16 @@
     const cards = elements.interfaceCardsContainer.querySelectorAll('.interface-card');
     cards.forEach((card) => {
       const nameEl = card.querySelector('.interface-name');
-      if (nameEl && nameEl.textContent.trim() === state.selectedInterface) {
-        card.classList.add('active');
-      } else {
-        card.classList.remove('active');
+      if (nameEl) {
+        const text = nameEl.textContent.trim();
+        if (
+          (state.selectedInterface === 'all' && text.includes('All Interfaces')) ||
+          (text === state.selectedInterface)
+        ) {
+          card.classList.add('active');
+        } else {
+          card.classList.remove('active');
+        }
       }
     });
   }
