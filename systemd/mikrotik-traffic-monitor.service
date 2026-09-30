@@ -1,0 +1,20 @@
+[Unit]
+Description=MikroTik Traffic Monitor Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/mikrotik-traffic-monitor
+EnvironmentFile=/opt/mikrotik-traffic-monitor/.env
+ExecStart=/opt/mikrotik-traffic-monitor/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=5s
+
+# Security sandboxing
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

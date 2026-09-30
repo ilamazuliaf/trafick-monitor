@@ -1,0 +1,28 @@
+# Environment & Secrets
+.env
+*.env
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Database & Data Directory
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# IDEs & System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+prd.md
