@@ -211,7 +211,6 @@
     // Update Mode UI Badge
     if (state.isRealtime) {
       elements.modeBadge.className = 'mode-badge';
-      elements.modeBadgeText Hector = '● Real-Time';
       elements.modeBadgeText.textContent = `● Real-Time (${(state.config.refresh_interval / 1000).toFixed(0)}s refresh)`;
     } else {
       elements.modeBadge.className = 'mode-badge historical';
