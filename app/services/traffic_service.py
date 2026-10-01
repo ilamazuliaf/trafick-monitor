@@ -8,7 +8,7 @@ from typing import Dict, Any
 from app.core.config import settings
 from app.core.duration import parse_duration_seconds
 from app.database.repository import TrafficRepository
-from app.database.models import TrafficQueryResponse
+from app.database.models import TrafficQueryResponse, InterfaceTrafficData
 
 
 class TrafficService:
@@ -37,15 +37,42 @@ class TrafficService:
         end_iso = now_dt.isoformat()
 
         # 4. Fetch Traffic Points from SQLite Repository
-        points = TrafficRepository.get_traffic_points(
-            interface_name=interface_name,
-            start_iso=start_iso,
-            end_iso=end_iso,
-            max_points=settings.graph_max_points
-        )
+        if is_all:
+            # Aggregate total points for backward compatibility in data
+            total_points = TrafficRepository.get_traffic_points(
+                interface_name="all",
+                start_iso=start_iso,
+                end_iso=end_iso,
+                max_points=settings.graph_max_points
+            )
+            # Fetch per-interface individual points
+            iface_points_map = TrafficRepository.get_traffic_points_by_interface(
+                interface_names=settings.monitored_interfaces,
+                start_iso=start_iso,
+                end_iso=end_iso,
+                max_points=settings.graph_max_points
+            )
+            interfaces_data = [
+                InterfaceTrafficData(name=iface_name, data=pts)
+                for iface_name, pts in iface_points_map.items()
+            ]
 
-        return TrafficQueryResponse(
-            interface=interface_name,
-            period=period,
-            data=points
-        )
+            return TrafficQueryResponse(
+                interface=interface_name,
+                period=period,
+                data=total_points,
+                interfaces=interfaces_data
+            )
+        else:
+            points = TrafficRepository.get_traffic_points(
+                interface_name=interface_name,
+                start_iso=start_iso,
+                end_iso=end_iso,
+                max_points=settings.graph_max_points
+            )
+            return TrafficQueryResponse(
+                interface=interface_name,
+                period=period,
+                data=points
+            )
+

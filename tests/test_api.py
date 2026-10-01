@@ -50,6 +50,7 @@ def test_api_traffic_valid():
 def test_api_traffic_all_interfaces():
     config_res = client.get("/api/config").json()
     period = config_res["default_period"]
+    expected_ifaces = config_res["interfaces"]
 
     response = client.get(f"/api/traffic?interface=all&period={period}")
     assert response.status_code == 200
@@ -57,6 +58,12 @@ def test_api_traffic_all_interfaces():
     assert data["interface"] == "all"
     assert data["period"] == period
     assert "data" in data
+    assert "interfaces" in data
+    assert isinstance(data["interfaces"], list)
+    returned_iface_names = [item["name"] for item in data["interfaces"]]
+    for iface_name in expected_ifaces:
+        assert iface_name in returned_iface_names
+
 
 
 def test_api_traffic_invalid_interface():

@@ -315,10 +315,15 @@
       showChartOverlay(false);
     }
 
-    if (trafficRes && trafficRes.data) {
-      updateChartData(trafficRes.data);
+    if (trafficRes) {
+      if (state.selectedInterface === 'all' && trafficRes.interfaces) {
+        updateAllInterfacesChart(trafficRes.interfaces);
+      } else if (trafficRes.data) {
+        updateSingleInterfaceChart(trafficRes.data, state.selectedInterface);
+      }
     }
   }
+
 
   // ==========================================================================
   // Interface Cards Renderer
@@ -472,52 +477,31 @@
   // Chart.js Visualization Engine
   // ==========================================================================
 
+  // ==========================================================================
+  // Chart.js Visualization Engine
+  // ==========================================================================
+
+  const INTERFACE_PALETTE = [
+    { primary: '#06b6d4', secondary: '#0891b2' }, // Cyan
+    { primary: '#10b981', secondary: '#059669' }, // Emerald Green
+    { primary: '#8b5cf6', secondary: '#7c3aed' }, // Violet / Purple
+    { primary: '#f59e0b', secondary: '#d97706' }, // Amber / Orange
+    { primary: '#ec4899', secondary: '#db2777' }, // Pink
+    { primary: '#3b82f6', secondary: '#2563eb' }  // Blue
+  ];
+
+  function getInterfacePalette(index) {
+    return INTERFACE_PALETTE[index % INTERFACE_PALETTE.length];
+  }
+
   function initChart() {
     const ctx = elements.chartCanvas.getContext('2d');
-
-    // Create Canvas Gradient Fills
-    const rxGradient = ctx.createLinearGradient(0, 0, 0, 350);
-    rxGradient.addColorStop(0, 'rgba(6, 182, 212, 0.35)');
-    rxGradient.addColorStop(1, 'rgba(6, 182, 212, 0.0)');
-
-    const txGradient = ctx.createLinearGradient(0, 0, 0, 350);
-    txGradient.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
-    txGradient.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
 
     state.chartInstance = new Chart(ctx, {
       type: 'line',
       data: {
         labels: [],
-        datasets: [
-          {
-            label: 'RX (Download)',
-            data: [],
-            borderColor: '#06b6d4',
-            backgroundColor: rxGradient,
-            borderWidth: 2,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 0,
-            pointHoverRadius: 6,
-            pointHoverBackgroundColor: '#06b6d4',
-            pointHoverBorderColor: '#ffffff',
-            pointHoverBorderWidth: 2
-          },
-          {
-            label: 'TX (Upload)',
-            data: [],
-            borderColor: '#8b5cf6',
-            backgroundColor: txGradient,
-            borderWidth: 2,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 0,
-            pointHoverRadius: 6,
-            pointHoverBackgroundColor: '#8b5cf6',
-            pointHoverBorderColor: '#ffffff',
-            pointHoverBorderWidth: 2
-          }
-        ]
+        datasets: []
       },
       options: {
         responsive: true,
@@ -539,7 +523,7 @@
               font: { family: 'Plus Jakarta Sans', size: 12, weight: '600' },
               usePointStyle: true,
               pointStyle: 'circle',
-              padding: 20
+              padding: 16
             }
           },
           tooltip: {
@@ -593,27 +577,65 @@
     });
   }
 
-  function updateChartData(samples) {
+  function updateSingleInterfaceChart(samples, interfaceName) {
     if (!state.chartInstance) return;
+
+    const ctx = elements.chartCanvas.getContext('2d');
+
+    const rxGradient = ctx.createLinearGradient(0, 0, 0, 350);
+    rxGradient.addColorStop(0, 'rgba(6, 182, 212, 0.35)');
+    rxGradient.addColorStop(1, 'rgba(6, 182, 212, 0.0)');
+
+    const txGradient = ctx.createLinearGradient(0, 0, 0, 350);
+    txGradient.addColorStop(0, 'rgba(139, 92, 246, 0.35)');
+    txGradient.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
 
     const labels = [];
     const rxData = [];
     const txData = [];
 
-    samples.forEach((sample) => {
+    (samples || []).forEach((sample) => {
       labels.push(formatTimestamp(sample.timestamp));
       rxData.push(sample.rx_bps || 0);
       txData.push(sample.tx_bps || 0);
     });
 
     state.chartInstance.data.labels = labels;
-    state.chartInstance.data.datasets[0].data = rxData;
-    state.chartInstance.data.datasets[1].data = txData;
+    state.chartInstance.data.datasets = [
+      {
+        label: `${interfaceName} RX (Download)`,
+        data: rxData,
+        borderColor: '#06b6d4',
+        backgroundColor: rxGradient,
+        borderWidth: 2,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: '#06b6d4',
+        pointHoverBorderColor: '#ffffff',
+        pointHoverBorderWidth: 2
+      },
+      {
+        label: `${interfaceName} TX (Upload)`,
+        data: txData,
+        borderColor: '#8b5cf6',
+        backgroundColor: txGradient,
+        borderWidth: 2,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: '#8b5cf6',
+        pointHoverBorderColor: '#ffffff',
+        pointHoverBorderWidth: 2
+      }
+    ];
 
     state.chartInstance.update(state.isRealtime ? 'none' : 'normal');
 
     // Update Live Traffic Summary Text above Chart
-    if (samples.length > 0) {
+    if (samples && samples.length > 0) {
       const latest = samples[samples.length - 1];
       elements.currentRxSummary.textContent = formatBitrate(latest.rx_bps);
       elements.currentTxSummary.textContent = formatBitrate(latest.tx_bps);
@@ -621,6 +643,81 @@
       elements.currentRxSummary.textContent = '0 bps';
       elements.currentTxSummary.textContent = '0 bps';
     }
+  }
+
+  function updateAllInterfacesChart(interfacesData) {
+    if (!state.chartInstance || !interfacesData || interfacesData.length === 0) return;
+
+    // Find longest dataset to use for X-axis timestamps
+    let longestSeries = interfacesData[0];
+    interfacesData.forEach((item) => {
+      if (item.data && item.data.length > (longestSeries.data ? longestSeries.data.length : 0)) {
+        longestSeries = item;
+      }
+    });
+
+    const labels = (longestSeries.data || []).map((sample) => formatTimestamp(sample.timestamp));
+    const newDatasets = [];
+
+    let totalLatestRx = 0;
+    let totalLatestTx = 0;
+
+    interfacesData.forEach((ifaceItem, idx) => {
+      const palette = getInterfacePalette(idx);
+      const ifaceName = ifaceItem.name;
+      const pts = ifaceItem.data || [];
+
+      const rxData = pts.map((p) => p.rx_bps || 0);
+      const txData = pts.map((p) => p.tx_bps || 0);
+
+      if (pts.length > 0) {
+        const last = pts[pts.length - 1];
+        totalLatestRx += (last.rx_bps || 0);
+        totalLatestTx += (last.tx_bps || 0);
+      }
+
+      // 1. Solid line for RX
+      newDatasets.push({
+        label: `${ifaceName} RX`,
+        data: rxData,
+        borderColor: palette.primary,
+        backgroundColor: 'transparent',
+        borderWidth: 2.5,
+        borderDash: [],
+        fill: false,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: palette.primary,
+        pointHoverBorderColor: '#ffffff',
+        pointHoverBorderWidth: 2
+      });
+
+      // 2. Dashed line for TX
+      newDatasets.push({
+        label: `${ifaceName} TX`,
+        data: txData,
+        borderColor: palette.primary,
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        borderDash: [5, 4],
+        fill: false,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: palette.primary,
+        pointHoverBorderColor: '#ffffff',
+        pointHoverBorderWidth: 2
+      });
+    });
+
+    state.chartInstance.data.labels = labels;
+    state.chartInstance.data.datasets = newDatasets;
+    state.chartInstance.update(state.isRealtime ? 'none' : 'normal');
+
+    // Update aggregated live traffic summary text above chart
+    elements.currentRxSummary.textContent = `${formatBitrate(totalLatestRx)} (Total)`;
+    elements.currentTxSummary.textContent = `${formatBitrate(totalLatestTx)} (Total)`;
   }
 
   function showChartOverlay(show) {
@@ -697,35 +794,69 @@
     const seconds = parseDurationSeconds(periodStr) || 900;
     const pointCount = Math.min(60, Math.max(20, Math.floor(seconds / 15)));
     const now = Date.now();
-    const data = [];
+    const ifaceList = (state.config && state.config.interfaces) ? state.config.interfaces : ["ether1-BAROKAH", "ether2-BIZ", "ether3-WAHED"];
 
-    const baseRates = {
-      "all": { rx: 640000000, tx: 115000000 },
-      "ether1-BAROKAH": { rx: 120000000, tx: 18000000 },
-      "ether2-BIZ": { rx: 240000000, tx: 40000000 },
-      "ether3-WAHED": { rx: 280000000, tx: 55000000 }
-    };
+    if (ifaceName === 'all') {
+      const baseRates = {
+        "ether1-BAROKAH": { rx: 120000000, tx: 18000000 },
+        "ether2-BIZ": { rx: 240000000, tx: 40000000 },
+        "ether3-WAHED": { rx: 280000000, tx: 55000000 }
+      };
 
-    const base = baseRates[ifaceName] || { rx: 60000000, tx: 12000000 };
+      const interfacesData = ifaceList.map((name, idx) => {
+        const base = baseRates[name] || { rx: (idx + 1) * 50000000, tx: (idx + 1) * 10000000 };
+        const pts = [];
+        for (let i = pointCount; i >= 0; i--) {
+          const t = now - (i * (seconds * 1000 / pointCount));
+          const sineWave = Math.sin(i / (3 + idx)) * (15000000 * (idx + 1));
+          const noiseRx = (Math.random() - 0.5) * 10000000;
+          const noiseTx = (Math.random() - 0.5) * 3000000;
 
-    for (let i = pointCount; i >= 0; i--) {
-      const t = now - (i * (seconds * 1000 / pointCount));
-      const sineWave = Math.sin(i / 3) * 30000000;
-      const noiseRx = (Math.random() - 0.5) * 10000000;
-      const noiseTx = (Math.random() - 0.5) * 3000000;
-
-      data.push({
-        timestamp: new Date(t).toISOString(),
-        rx_bps: Math.max(500000, Math.round(base.rx + sineWave + noiseRx)),
-        tx_bps: Math.max(200000, Math.round(base.tx + (sineWave * 0.3) + noiseTx))
+          pts.push({
+            timestamp: new Date(t).toISOString(),
+            rx_bps: Math.max(500000, Math.round(base.rx + sineWave + noiseRx)),
+            tx_bps: Math.max(200000, Math.round(base.tx + (sineWave * 0.3) + noiseTx))
+          });
+        }
+        return { name: name, data: pts };
       });
-    }
 
-    return {
-      interface: ifaceName,
-      period: periodStr,
-      data: data
-    };
+      return {
+        interface: "all",
+        period: periodStr,
+        data: interfacesData[0] ? interfacesData[0].data : [],
+        interfaces: interfacesData
+      };
+    } else {
+      const baseRates = {
+        "ether1-BAROKAH": { rx: 120000000, tx: 18000000 },
+        "ether2-BIZ": { rx: 240000000, tx: 40000000 },
+        "ether3-WAHED": { rx: 280000000, tx: 55000000 }
+      };
+
+      const base = baseRates[ifaceName] || { rx: 60000000, tx: 12000000 };
+      const data = [];
+
+      for (let i = pointCount; i >= 0; i--) {
+        const t = now - (i * (seconds * 1000 / pointCount));
+        const sineWave = Math.sin(i / 3) * 30000000;
+        const noiseRx = (Math.random() - 0.5) * 10000000;
+        const noiseTx = (Math.random() - 0.5) * 3000000;
+
+        data.push({
+          timestamp: new Date(t).toISOString(),
+          rx_bps: Math.max(500000, Math.round(base.rx + sineWave + noiseRx)),
+          tx_bps: Math.max(200000, Math.round(base.tx + (sineWave * 0.3) + noiseTx))
+        });
+      }
+
+      return {
+        interface: ifaceName,
+        period: periodStr,
+        data: data
+      };
+    }
   }
+
 
 })();

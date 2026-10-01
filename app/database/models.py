@@ -48,7 +48,14 @@ class TrafficPoint(BaseModel):
     tx_bps: float
 
 
+class InterfaceTrafficData(BaseModel):
+    name: str
+    data: List[TrafficPoint]
+
+
 class TrafficQueryResponse(BaseModel):
     interface: str
     period: str
-    data: List[TrafficPoint]
+    data: Optional[List[TrafficPoint]] = None
+    interfaces: Optional[List[InterfaceTrafficData]] = None
+

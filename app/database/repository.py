@@ -124,6 +124,29 @@ class TrafficRepository:
             conn.close()
 
     @staticmethod
+    def get_traffic_points_by_interface(
+        interface_names: List[str],
+        start_iso: str,
+        end_iso: str,
+        max_points: int = 500
+    ) -> dict:
+        """
+        Queries traffic points per interface within a time window [start_iso, end_iso].
+        Returns a dictionary mapping interface_name -> List[TrafficPoint].
+        """
+        result = {}
+        for iface_name in interface_names:
+            points = TrafficRepository.get_traffic_points(
+                interface_name=iface_name,
+                start_iso=start_iso,
+                end_iso=end_iso,
+                max_points=max_points
+            )
+            result[iface_name] = points
+        return result
+
+
+    @staticmethod
     def _downsample(points: List[TrafficPoint], max_points: int) -> List[TrafficPoint]:
         """
         Averages bucketed points to ensure length <= max_points.
