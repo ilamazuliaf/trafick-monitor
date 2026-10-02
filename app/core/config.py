@@ -51,10 +51,12 @@ class Settings(BaseSettings):
     # Data Retention
     data_retention: str = Field(default="30d", validation_alias="DATA_RETENTION")
 
-    # Telegram Bot
+    # Telegram Bot & Isolated IP
     telegram_enabled: bool = Field(default=True, validation_alias="TELEGRAM_ENABLED")
     telegram_bot_token: str = Field(default="", validation_alias="TELEGRAM_BOT_TOKEN")
     telegram_allowed_chat_ids_raw: str = Field(default="", validation_alias="TELEGRAM_ALLOWED_CHAT_IDS")
+    isolated_ip_range: str = Field(default="10.127.0.0/18", validation_alias="ISOLATED_IP_RANGE")
+
 
     @property
     def telegram_allowed_chat_ids(self) -> List[int]:

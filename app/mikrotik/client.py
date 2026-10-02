@@ -123,10 +123,10 @@ class MikrotikClient:
 
         return results
 
-    def get_active_pppoe(self) -> List[str]:
+    def get_active_pppoe_sessions(self) -> List[Dict[str, str]]:
         """
-        Queries RouterOS for active PPPoE sessions via /ppp/active/print (tambah_fitur.md Section 8 & 29).
-        Returns list of active PPPoE usernames.
+        Queries RouterOS for active PPPoE sessions via /ppp/active/print.
+        Returns list of dicts with session info: name, address, caller-id, uptime.
         """
         if not self.sock:
             if not self.connect():
@@ -146,14 +146,29 @@ class MikrotikClient:
                 raise MikrotikAPIError(f"Failed to reconnect to MikroTik host {self.host}:{self.port}")
             raw_reply = self._talk(sentence)
 
-        active_users: List[str] = []
+        sessions: List[Dict[str, str]] = []
         for item in raw_reply:
             if item.get("reply") == "!re":
                 name = item.get("name")
                 if name:
-                    active_users.append(name.strip())
+                    sessions.append({
+                        "name": name.strip(),
+                        "address": item.get("address", "").strip(),
+                        "caller_id": item.get("caller-id", "").strip(),
+                        "uptime": item.get("uptime", "").strip(),
+                        "service": item.get("service", "").strip()
+                    })
 
-        return active_users
+        return sessions
+
+    def get_active_pppoe(self) -> List[str]:
+        """
+        Queries RouterOS for active PPPoE sessions via /ppp/active/print (tambah_fitur.md Section 8 & 29).
+        Returns list of active PPPoE usernames.
+        """
+        sessions = self.get_active_pppoe_sessions()
+        return [s["name"] for s in sessions if s.get("name")]
+
 
     def _talk(self, sentence: List[str]) -> List[Dict[str, str]]:
         """

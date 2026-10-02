@@ -10,7 +10,12 @@ from telegram.ext import ContextTypes
 from app.core.config import settings
 from app.core.logging import logger
 from app.database.repository import CustomerRepository, backup_database
-from app.services.pppoe_service import get_offline_customers, format_cek_off_report
+from app.services.pppoe_service import (
+    get_offline_customers,
+    format_cek_off_report,
+    get_isolated_customers,
+    format_cek_isolir_report
+)
 from app.telegram.keyboards import (
     get_main_menu_keyboard,
     get_customer_menu_keyboard,
@@ -121,6 +126,21 @@ async def cmd_cek_off(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 @auth_required
+async def cmd_cek_isolir(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handles /cek_isolir command. Identifies PPPoE clients assigned IPs within ISOLATED_IP_RANGE.
+    """
+    placeholder = await update.message.reply_text("⏳ Sedang memeriksa pelanggan PPPoE isolir...")
+    try:
+        report = get_isolated_customers()
+        formatted_text = format_cek_isolir_report(report)
+        await placeholder.edit_text(formatted_text)
+    except Exception as e:
+        logger.error(f"Error executing /cek_isolir command: {e}")
+        await placeholder.edit_text("❌ Terjadi kesalahan saat memeriksa pelanggan isolir.")
+
+
+@auth_required
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handles Inline Keyboard callback buttons.
@@ -152,6 +172,16 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             formatted_text,
             reply_markup=get_main_menu_keyboard()
         )
+
+    elif data == "btn_cek_isolir":
+        await query.edit_message_text("⏳ Sedang memeriksa pelanggan PPPoE isolir...")
+        report = get_isolated_customers()
+        formatted_text = format_cek_isolir_report(report)
+        await query.message.reply_text(
+            formatted_text,
+            reply_markup=get_main_menu_keyboard()
+        )
+
 
     elif data == "btn_traffic_status":
         from app.database.repository import TrafficRepository

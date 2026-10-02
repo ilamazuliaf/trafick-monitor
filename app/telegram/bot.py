@@ -38,6 +38,8 @@ class TelegramBotRunner:
             self.app.add_handler(CommandHandler("menu", handlers.cmd_menu))
             self.app.add_handler(CommandHandler("pelanggan", handlers.cmd_pelanggan))
             self.app.add_handler(CommandHandler("cek_off", handlers.cmd_cek_off))
+            self.app.add_handler(CommandHandler("cek_isolir", handlers.cmd_cek_isolir))
+
 
             # Register Callback Query Handler
             self.app.add_handler(CallbackQueryHandler(handlers.handle_callback_query))

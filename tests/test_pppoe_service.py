@@ -86,18 +86,33 @@ def test_pppoe_check_all_offline():
     assert result["offline_count"] == 2
 
 
-def test_pppoe_check_mikrotik_error_no_false_offline():
-    CustomerRepository.create_customer(CustomerCreate(username="user01", customer_name="User 1"))
+from app.services.pppoe_service import (
+    get_offline_customers,
+    format_cek_off_report,
+    get_isolated_customers,
+    format_cek_isolir_report
+)
+
+
+def test_pppoe_check_isolated_customers(monkeypatch):
+    monkeypatch.setattr("app.core.config.settings.isolated_ip_range", "10.127.0.0/18")
+    CustomerRepository.create_customer(CustomerCreate(customer_code="C001", username="isolir01", customer_name="Isolir User 1", package="10M"))
+    CustomerRepository.create_customer(CustomerCreate(customer_code="C002", username="normal01", customer_name="Normal User 1", package="20M"))
 
     mock_client = MagicMock()
-    mock_client.host = "192.168.1.1"
-    mock_client.port = 8728
-    mock_client.get_active_pppoe.side_effect = MikrotikAPIError("Connection timeout")
+    mock_client.get_active_pppoe_sessions.return_value = [
+        {"name": "isolir01", "address": "10.127.0.15", "uptime": "1h"},  # In 10.127.0.0/18 -> Isolated!
+        {"name": "normal01", "address": "10.10.10.20", "uptime": "2h"}   # Outside -> Normal
+    ]
 
-    result = get_offline_customers(client=mock_client)
-    assert result["status"] == "mikrotik_error"
+    result = get_isolated_customers(client=mock_client)
+    assert result["status"] == "ok"
+    assert result["total_isolated"] == 1
+    assert result["isolated_sessions"][0]["username"] == "isolir01"
+    assert result["isolated_sessions"][0]["address"] == "10.127.0.15"
 
-    report = format_cek_off_report(result)
-    assert "GAGAL MENGECEK PPPoE" in report
-    assert "MikroTik tidak dapat dihubungi" in report
-    assert "192.168.1.1:8728" in report
+    report = format_cek_isolir_report(result)
+    assert "PPPoE ISOLIR" in report
+    assert "isolir01" in report
+    assert "10.127.0.15" in report
+

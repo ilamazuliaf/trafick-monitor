@@ -59,18 +59,21 @@ nano .env
 | `TELEGRAM_ENABLED` | `true` | Enable Telegram Bot module |
 | `TELEGRAM_BOT_TOKEN` | `YOUR_TELEGRAM_BOT_TOKEN` | Bot Father API Token |
 | `TELEGRAM_ALLOWED_CHAT_IDS` | `123456789` | Comma-separated allowed Telegram Chat IDs |
+| `ISOLATED_IP_RANGE` | `10.127.0.0/18` | Subnet CIDR IP isolir pelanggan PPPoE |
 
 ---
 
-## 🤖 Telegram PPPoE Offline Monitoring
+## 🤖 Telegram PPPoE Offline & Isolir Monitoring
 
-Sistem terintegrasi dengan Telegram Bot untuk memantau pelanggan PPPoE yang offline dengan membandingkan database pelanggan lokal dengan sesi `/ppp/active/print` MikroTik RouterOS API.
+Sistem terintegrasi dengan Telegram Bot untuk memantau pelanggan PPPoE yang offline maupun yang sedang ter-isolir berdasarkan subnet IP yang dikonfigurasi (`ISOLATED_IP_RANGE`).
 
 ### Command Telegram:
 - `/start` - Menampilkan menu utama Telegram Bot.
 - `/menu` - Menampilkan menu utama.
 - `/pelanggan` - Menampilkan menu manajemen data pelanggan PPPoE.
 - `/cek_off` - Memeriksa status koneksi pelanggan PPPoE yang sedang offline.
+- `/cek_isolir` - Memeriksa daftar pelanggan PPPoE yang mendapatkan IP isolir (misal `10.127.0.0/18`).
+
 
 ### Fitur Excel Pelanggan:
 - **Download Template Excel**: Mengunduh format `.xlsx` standar.
