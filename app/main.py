@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.database.database import init_db
 from app.mikrotik.collector import collector
+from app.telegram import telegram_bot
 
 from app.api.routes_config import router as config_router
 from app.api.routes_status import router as status_router
@@ -24,7 +25,7 @@ from app.api.routes_traffic import router as traffic_router
 async def lifespan(app: FastAPI):
     """
     Application startup & shutdown lifespan context manager.
-    (prd.md Section 51 - Startup Validation & Initialization Flow)
+    (prd.md Section 51 & tambah_fitur.md Section 47)
     """
     logger.info("=============================================")
     logger.info(" Starting MikroTik Traffic Monitor App")
@@ -36,10 +37,14 @@ async def lifespan(app: FastAPI):
     # 2. Start Background Traffic Collector Worker (Single Worker)
     await collector.start()
 
+    # 3. Start Telegram Bot Async Polling Worker
+    await telegram_bot.start()
+
     yield  # Application runs
 
-    # 3. Shutdown Traffic Collector Worker
+    # 4. Shutdown Telegram Bot & Traffic Collector Worker
     logger.info("Shutting down application background tasks...")
+    await telegram_bot.stop()
     await collector.stop()
     logger.info("Application shutdown complete.")
 

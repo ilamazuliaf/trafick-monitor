@@ -55,6 +55,31 @@ def init_db() -> None:
             ON traffic_samples (timestamp);
         """)
 
+        # Customers table creation (tambah_fitur.md Section 9 & 10)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS customers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                customer_code TEXT UNIQUE,
+                username TEXT NOT NULL UNIQUE,
+                customer_name TEXT NOT NULL,
+                phone TEXT,
+                address TEXT,
+                package TEXT,
+                monitoring_enabled BOOLEAN NOT NULL DEFAULT 1,
+                notes TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_customers_username 
+            ON customers (username);
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_customers_monitoring 
+            ON customers (monitoring_enabled);
+        """)
+
         conn.commit()
         logger.info("Database schema & indexes initialized successfully.")
     except Exception as e:

@@ -1,0 +1,76 @@
+"""
+Telegram Bot Manager Module (tambah_fitur.md Section 28, 46, 47, 48)
+Manages Telegram bot lifecycle, initialization, polling, and graceful shutdown within FastAPI event loop.
+"""
+from typing import Optional
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+
+from app.core.config import settings
+from app.core.logging import logger
+from app.telegram import handlers
+
+
+class TelegramBotRunner:
+    def __init__(self):
+        self.app: Optional[Application] = None
+        self._is_running: bool = False
+
+    async def start(self) -> None:
+        """
+        Initializes and starts polling Telegram Bot updates.
+        Non-blocking execution integrated with FastAPI event loop.
+        """
+        if not settings.telegram_enabled:
+            logger.info("Telegram Bot disabled (TELEGRAM_ENABLED=false).")
+            return
+
+        if not settings.telegram_bot_token or settings.telegram_bot_token == "YOUR_TELEGRAM_BOT_TOKEN":
+            logger.warning("Telegram Bot token is not configured in .env. Skipping Telegram Bot startup.")
+            return
+
+        try:
+            logger.info("Initializing Telegram Bot Application...")
+            builder = Application.builder().token(settings.telegram_bot_token)
+            self.app = builder.build()
+
+            # Register Command Handlers
+            self.app.add_handler(CommandHandler("start", handlers.cmd_start))
+            self.app.add_handler(CommandHandler("menu", handlers.cmd_menu))
+            self.app.add_handler(CommandHandler("pelanggan", handlers.cmd_pelanggan))
+            self.app.add_handler(CommandHandler("cek_off", handlers.cmd_cek_off))
+
+            # Register Callback Query Handler
+            self.app.add_handler(CallbackQueryHandler(handlers.handle_callback_query))
+
+            # Register Document Message Handler for Excel upload
+            self.app.add_handler(MessageHandler(filters.Document.ALL, handlers.handle_document_upload))
+
+            await self.app.initialize()
+            await self.app.start()
+            if self.app.updater:
+                await self.app.updater.start_polling(drop_pending_updates=True)
+            self._is_running = True
+            logger.info("Telegram Bot started and polling active.")
+        except Exception as e:
+            logger.error(f"Failed to start Telegram Bot: {e}. FastAPI app will continue running.")
+
+    async def stop(self) -> None:
+        """
+        Stops Telegram Bot polling and cleans up resources on application shutdown.
+        """
+        if self.app and self._is_running:
+            logger.info("Stopping Telegram Bot...")
+            try:
+                if self.app.updater and self.app.updater.running:
+                    await self.app.updater.stop()
+                await self.app.stop()
+                await self.app.shutdown()
+                logger.info("Telegram Bot stopped successfully.")
+            except Exception as e:
+                logger.error(f"Error stopping Telegram Bot: {e}")
+            finally:
+                self._is_running = False
+
+
+# Global Telegram Bot Singleton Instance
+telegram_bot = TelegramBotRunner()

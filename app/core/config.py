@@ -51,6 +51,28 @@ class Settings(BaseSettings):
     # Data Retention
     data_retention: str = Field(default="30d", validation_alias="DATA_RETENTION")
 
+    # Telegram Bot
+    telegram_enabled: bool = Field(default=True, validation_alias="TELEGRAM_ENABLED")
+    telegram_bot_token: str = Field(default="", validation_alias="TELEGRAM_BOT_TOKEN")
+    telegram_allowed_chat_ids_raw: str = Field(default="", validation_alias="TELEGRAM_ALLOWED_CHAT_IDS")
+
+    @property
+    def telegram_allowed_chat_ids(self) -> List[int]:
+        """
+        Parses TELEGRAM_ALLOWED_CHAT_IDS comma-separated string into a list of integers.
+        """
+        if not self.telegram_allowed_chat_ids_raw:
+            return []
+        ids: List[int] = []
+        for raw_id in str(self.telegram_allowed_chat_ids_raw).split(","):
+            cleaned = raw_id.strip()
+            if cleaned:
+                try:
+                    ids.append(int(cleaned))
+                except ValueError:
+                    logger.warning(f"Invalid chat ID in TELEGRAM_ALLOWED_CHAT_IDS: '{cleaned}'")
+        return ids
+
     @property
     def monitored_interfaces(self) -> List[str]:
         """

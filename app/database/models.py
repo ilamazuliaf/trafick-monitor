@@ -59,3 +59,36 @@ class TrafficQueryResponse(BaseModel):
     data: Optional[List[TrafficPoint]] = None
     interfaces: Optional[List[InterfaceTrafficData]] = None
 
+
+# Customer Models (tambah_fitur.md Section 9)
+class CustomerBase(BaseModel):
+    customer_code: Optional[str] = None
+    username: str
+    customer_name: str
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    package: Optional[str] = None
+    monitoring_enabled: bool = True
+    notes: Optional[str] = None
+
+
+class CustomerCreate(CustomerBase):
+    pass
+
+
+class CustomerUpdate(BaseModel):
+    customer_code: Optional[str] = None
+    customer_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    package: Optional[str] = None
+    monitoring_enabled: Optional[bool] = None
+    notes: Optional[str] = None
+
+
+class CustomerRead(CustomerBase):
+    id: int
+    created_at: str
+    updated_at: str
+
+

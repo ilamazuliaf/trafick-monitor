@@ -56,8 +56,28 @@ nano .env
 | `GRAPH_REFRESH_INTERVAL` | `5000` | Real-time frontend refresh interval in milliseconds |
 | `GRAPH_MAX_POINTS` | `500` | Maximum points returned after downsampling |
 | `DATA_RETENTION` | `30d` | Historical data retention limit before cleanup |
+| `TELEGRAM_ENABLED` | `true` | Enable Telegram Bot module |
+| `TELEGRAM_BOT_TOKEN` | `YOUR_TELEGRAM_BOT_TOKEN` | Bot Father API Token |
+| `TELEGRAM_ALLOWED_CHAT_IDS` | `123456789` | Comma-separated allowed Telegram Chat IDs |
 
 ---
+
+## 🤖 Telegram PPPoE Offline Monitoring
+
+Sistem terintegrasi dengan Telegram Bot untuk memantau pelanggan PPPoE yang offline dengan membandingkan database pelanggan lokal dengan sesi `/ppp/active/print` MikroTik RouterOS API.
+
+### Command Telegram:
+- `/start` - Menampilkan menu utama Telegram Bot.
+- `/menu` - Menampilkan menu utama.
+- `/pelanggan` - Menampilkan menu manajemen data pelanggan PPPoE.
+- `/cek_off` - Memeriksa status koneksi pelanggan PPPoE yang sedang offline.
+
+### Fitur Excel Pelanggan:
+- **Download Template Excel**: Mengunduh format `.xlsx` standar.
+- **Export Data Pelanggan**: Mengunduh seluruh data pelanggan dari SQLite ke `.xlsx`.
+- **Import / Update Excel**: Mengunggah kembali file `.xlsx` untuk menambah/memperbarui data pelanggan.
+- **Backup Otomatis**: Setiap import massal secara otomatis membuat backup database di `data/backups/`.
+
 
 ## 💻 Running the Application
 
