@@ -40,6 +40,31 @@ class TelegramBotRunner:
             self.app.add_handler(CommandHandler("cek_off", handlers.cmd_cek_off))
             self.app.add_handler(CommandHandler("cek_isolir", handlers.cmd_cek_isolir))
 
+            # === OLT INTEGRATION (Conditional) ===
+            if settings.olt_enabled:
+                try:
+                    from app.olt.config import OLTConfig
+                    from app.olt.snmp.client import SNMPClient
+                    from app.olt.monitor import OLTMonitor
+                    from app.olt import handlers as olt_handlers
+
+                    olt_config = OLTConfig.load()
+                    snmp_client = SNMPClient(olt_config)
+                    olt_monitor = OLTMonitor(olt_config, snmp_client)
+
+                    self.app.bot_data["olt_config"] = olt_config
+                    self.app.bot_data["olt_monitor"] = olt_monitor
+
+                    self.app.add_handler(CommandHandler("cek_putus", olt_handlers.cek_putus_command))
+                    self.app.add_handler(CommandHandler("cek_redaman", olt_handlers.cek_redaman_command))
+                    self.app.add_handler(CommandHandler("olt_status", olt_handlers.olt_status_command))
+
+                    logger.info(f"OLT Module aktif: {olt_config.olt_name} ({olt_config.olt_host})")
+                except Exception as e:
+                    logger.error(f"Gagal menginisialisasi modul OLT: {e}")
+            else:
+                logger.info("OLT Module tidak aktif (OLT_ENABLED=false)")
+
 
             # Register Callback Query Handler
             self.app.add_handler(CallbackQueryHandler(handlers.handle_callback_query))

@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     telegram_allowed_chat_ids_raw: str = Field(default="", validation_alias="TELEGRAM_ALLOWED_CHAT_IDS")
     isolated_ip_range: str = Field(default="10.127.0.0/18", validation_alias="ISOLATED_IP_RANGE")
 
+    # OLT SNMP Monitoring (Opsional)
+    olt_enabled: bool = Field(default=False, validation_alias="OLT_ENABLED")
+
 
     @property
     def telegram_allowed_chat_ids(self) -> List[int]:

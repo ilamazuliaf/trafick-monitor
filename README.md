@@ -73,6 +73,15 @@ Sistem terintegrasi dengan Telegram Bot untuk memantau pelanggan PPPoE yang offl
 - `/pelanggan` - Menampilkan menu manajemen data pelanggan PPPoE.
 - `/cek_off` - Memeriksa status koneksi pelanggan PPPoE yang sedang offline.
 - `/cek_isolir` - Memeriksa daftar pelanggan PPPoE yang mendapatkan IP isolir (misal `10.127.0.0/18`).
+- `/cek_putus` - Memeriksa daftar ONT berstatus OFFLINE dikelompokkan per PON (Modul OLT).
+- `/cek_redaman` - Memeriksa ONT dengan RX Power <= threshold redaman (Modul OLT).
+- `/olt_status` - Memeriksa status koneksi SNMP ke OLT (Modul OLT).
+
+### Fitur OLT SNMP Monitoring (Opsional):
+- **Monitoring status ONT**: Deteksi ONT offline per PON.
+- **Deteksi Redaman Tinggi**: Memantau sinyal optik RX Power terhadap threshold (misal `-25.0 dBm`).
+- **Multi-Vendor MIB Support**: Konfigurasi OID fleksibel (HSGQ, ZTE, Huawei, dll).
+- **Auto Pagination**: Otomatis memecah pesan jika melebihi limit Telegram (4096 karakter).
 
 
 ### Fitur Excel Pelanggan:
