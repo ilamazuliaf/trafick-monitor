@@ -12,7 +12,9 @@ from pysnmp.hlapi.asyncio import (
     ObjectIdentity,
     get_cmd,
     walk_cmd,
-    is_end_of_mib,
+    EndOfMibView,
+    NoSuchObject,
+    NoSuchInstance,
 )
 
 from app.core.logging import logger
@@ -68,7 +70,10 @@ class SNMPClient:
                 return None
 
             for var_bind in var_binds:
-                val_str = str(var_bind[1])
+                val = var_bind[1]
+                if isinstance(val, (EndOfMibView, NoSuchObject, NoSuchInstance)) or val.__class__.__name__ in ("EndOfMibView", "NoSuchObject", "NoSuchInstance"):
+                    return None
+                val_str = str(val.prettyPrint() if hasattr(val, "prettyPrint") else val)
                 if "nosuchinstance" in val_str.lower() or "nosuchobject" in val_str.lower():
                     return None
                 return val_str
@@ -113,7 +118,7 @@ class SNMPClient:
                     break
 
                 for name, val in var_binds:
-                    if is_end_of_mib(val):
+                    if isinstance(val, (EndOfMibView, NoSuchObject, NoSuchInstance)) or val.__class__.__name__ in ("EndOfMibView", "NoSuchObject", "NoSuchInstance"):
                         break
                     val_str = str(val.prettyPrint() if hasattr(val, "prettyPrint") else val)
                     if "nosuchinstance" in val_str.lower() or "nosuchobject" in val_str.lower():
@@ -157,8 +162,9 @@ class SNMPClient:
                 return False, f"ERROR ({error_status.prettyPrint()})", 0.0
 
             if var_binds:
-                val_str = str(var_binds[0][1]).lower()
-                if "nosuchinstance" in val_str or "nosuchobject" in val_str:
+                val = var_binds[0][1]
+                val_str = str(val).lower()
+                if isinstance(val, (NoSuchInstance, NoSuchObject)) or "nosuchinstance" in val_str or "nosuchobject" in val_str:
                     # If test_oid is a table root, try walking 1 item
                     async for e_ind, e_stat, _, v_binds in walk_cmd(
                         engine,
@@ -173,8 +179,9 @@ class SNMPClient:
                         if e_stat:
                             return False, f"ERROR ({e_stat.prettyPrint()})", 0.0
                         if v_binds:
-                            v_val = str(v_binds[0][1]).lower()
-                            if "nosuchinstance" in v_val or "nosuchobject" in v_val:
+                            v_val_obj = v_binds[0][1]
+                            v_val = str(v_val_obj).lower()
+                            if isinstance(v_val_obj, (NoSuchInstance, NoSuchObject)) or "nosuchinstance" in v_val or "nosuchobject" in v_val:
                                 return False, "ERROR (OID tidak ditemukan di OLT)", 0.0
                             return True, "CONNECTED", latency
                         break
