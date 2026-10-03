@@ -1,5 +1,6 @@
 """
 OLT Monitoring Business Logic Module (PRD Section 8.5)
+Optimized with Selective OID Fetching.
 """
 import asyncio
 from typing import List, Tuple
@@ -27,7 +28,7 @@ class OLTMonitor:
             return False, "Modul OLT tidak aktif (OLT_ENABLED=false)", 0.0
         return await self.snmp_client.check_connection()
 
-    async def get_all_onts(self) -> List[ONT]:
+    async def get_all_onts(self, include_optical_power: bool = True) -> List[ONT]:
         """
         Fetches all ONTs from OLT via SNMP WALK.
         (PRD Section 8.5)
@@ -39,9 +40,9 @@ class OLTMonitor:
         tasks = {
             "status": self.snmp_client.walk(self.config.oid_ont_status),
         }
-        if self.config.oid_ont_rx_power:
+        if include_optical_power and self.config.oid_ont_rx_power:
             tasks["rx_power"] = self.snmp_client.walk(self.config.oid_ont_rx_power)
-        if self.config.oid_ont_tx_power:
+        if include_optical_power and self.config.oid_ont_tx_power:
             tasks["tx_power"] = self.snmp_client.walk(self.config.oid_ont_tx_power)
         if self.config.oid_ont_vendor:
             tasks["vendor"] = self.snmp_client.walk(self.config.oid_ont_vendor)
@@ -88,9 +89,10 @@ class OLTMonitor:
     async def get_offline_onts(self) -> List[ONT]:
         """
         Returns list of offline ONTs, sorted by sort_key.
+        Skips optical power walks since only status is needed.
         (PRD Section 8.5)
         """
-        all_onts = await self.get_all_onts()
+        all_onts = await self.get_all_onts(include_optical_power=False)
         return [ont for ont in all_onts if ont.is_offline]
 
     async def get_high_attenuation_onts(self) -> List[ONT]:
@@ -98,6 +100,6 @@ class OLTMonitor:
         Returns list of ONTs with rx_power <= threshold, sorted by sort_key.
         (PRD Section 8.5)
         """
-        all_onts = await self.get_all_onts()
+        all_onts = await self.get_all_onts(include_optical_power=True)
         threshold = self.config.rx_power_threshold
         return [ont for ont in all_onts if ont.rx_power is not None and ont.rx_power <= threshold]

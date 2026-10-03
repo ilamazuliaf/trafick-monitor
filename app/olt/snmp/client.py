@@ -1,5 +1,6 @@
 """
 Async SNMP Client Module (PRD Section 8.3)
+High-performance implementation using GetBulk for SNMP v2c/v3.
 """
 import time
 from typing import Dict, Optional, Tuple
@@ -12,6 +13,7 @@ from pysnmp.hlapi.asyncio import (
     ObjectIdentity,
     get_cmd,
     walk_cmd,
+    bulk_walk_cmd,
     EndOfMibView,
     NoSuchObject,
     NoSuchInstance,
@@ -24,10 +26,12 @@ from app.olt.config import OLTConfig
 class SNMPClient:
     """
     Asynchronous SNMP Client for OLT monitoring using pysnmp.
+    Optimized with GetBulk (bulk_walk_cmd) for high performance.
     """
 
     def __init__(self, config: OLTConfig):
         self.config = config
+        self._engine = SnmpEngine()
 
     def _get_auth_data(self) -> CommunityData:
         mp_model = 1  # SNMP v2c default
@@ -50,16 +54,15 @@ class SNMPClient:
         Executes SNMP GET for a single OID.
         (PRD Section 8.3)
         """
-        if not oid:
+        if not oid or not oid.strip():
             return None
 
-        engine = SnmpEngine()
         try:
             target = await self._create_target()
             auth = self._get_auth_data()
 
             error_indication, error_status, error_index, var_binds = await get_cmd(
-                engine, auth, target, ContextData(), ObjectType(ObjectIdentity(oid))
+                self._engine, auth, target, ContextData(), ObjectType(ObjectIdentity(oid))
             )
 
             if error_indication:
@@ -81,35 +84,47 @@ class SNMPClient:
         except Exception as e:
             logger.error(f"Exception during SNMP GET {oid}: {e}", exc_info=True)
             return None
-        finally:
-            try:
-                engine.close_engine()
-            except Exception:
-                pass
 
-    async def walk(self, oid: str) -> Dict[str, str]:
+    async def walk(self, oid: str, max_repetitions: int = 25) -> Dict[str, str]:
         """
-        Executes SNMP WALK for an OID subtree. Returns dict mapping full_oid string -> value string.
+        Executes SNMP WALK (using GetBulk for v2c/v3) for an OID subtree.
+        Returns dict mapping full_oid string -> value string.
         (PRD Section 8.3)
         """
         result: Dict[str, str] = {}
-        if not oid:
+        if not oid or not oid.strip():
             return result
 
-        engine = SnmpEngine()
         try:
             target = await self._create_target()
             auth = self._get_auth_data()
             root_norm = oid.strip(".")
 
-            async for error_indication, error_status, error_index, var_binds in walk_cmd(
-                engine,
-                auth,
-                target,
-                ContextData(),
-                ObjectType(ObjectIdentity(oid)),
-                lexicographicalMode=False,
-            ):
+            ver = str(self.config.snmp_version).lower()
+            use_bulk = ver not in ("1", "v1")
+
+            if use_bulk:
+                generator = bulk_walk_cmd(
+                    self._engine,
+                    auth,
+                    target,
+                    ContextData(),
+                    0,
+                    max_repetitions,
+                    ObjectType(ObjectIdentity(oid)),
+                    lexicographicalMode=False,
+                )
+            else:
+                generator = walk_cmd(
+                    self._engine,
+                    auth,
+                    target,
+                    ContextData(),
+                    ObjectType(ObjectIdentity(oid)),
+                    lexicographicalMode=False,
+                )
+
+            async for error_indication, error_status, error_index, var_binds in generator:
                 if error_indication:
                     logger.warning(f"SNMP WALK error: {error_indication} for OID {oid}")
                     break
@@ -130,11 +145,6 @@ class SNMPClient:
 
         except Exception as e:
             logger.error(f"Exception during SNMP WALK {oid}: {e}", exc_info=True)
-        finally:
-            try:
-                engine.close_engine()
-            except Exception:
-                pass
 
         return result
 
@@ -145,13 +155,12 @@ class SNMPClient:
         """
         test_oid = self.config.oid_ont_status or "1.3.6.1.2.1.1.3.0"
         t0 = time.monotonic()
-        engine = SnmpEngine()
         try:
             target = await self._create_target()
             auth = self._get_auth_data()
 
             error_indication, error_status, error_index, var_binds = await get_cmd(
-                engine, auth, target, ContextData(), ObjectType(ObjectIdentity(test_oid))
+                self._engine, auth, target, ContextData(), ObjectType(ObjectIdentity(test_oid))
             )
             t1 = time.monotonic()
             latency = round((t1 - t0) * 1000, 2)
@@ -166,14 +175,29 @@ class SNMPClient:
                 val_str = str(val).lower()
                 if isinstance(val, (NoSuchInstance, NoSuchObject)) or "nosuchinstance" in val_str or "nosuchobject" in val_str:
                     # If test_oid is a table root, try walking 1 item
-                    async for e_ind, e_stat, _, v_binds in walk_cmd(
-                        engine,
-                        auth,
-                        target,
-                        ContextData(),
-                        ObjectType(ObjectIdentity(test_oid)),
-                        lexicographicalMode=False,
-                    ):
+                    ver = str(self.config.snmp_version).lower()
+                    if ver not in ("1", "v1"):
+                        gen = bulk_walk_cmd(
+                            self._engine,
+                            auth,
+                            target,
+                            ContextData(),
+                            0,
+                            1,
+                            ObjectType(ObjectIdentity(test_oid)),
+                            lexicographicalMode=False,
+                        )
+                    else:
+                        gen = walk_cmd(
+                            self._engine,
+                            auth,
+                            target,
+                            ContextData(),
+                            ObjectType(ObjectIdentity(test_oid)),
+                            lexicographicalMode=False,
+                        )
+
+                    async for e_ind, e_stat, _, v_binds in gen:
                         if e_ind:
                             return False, f"ERROR ({e_ind})", 0.0
                         if e_stat:
@@ -189,8 +213,3 @@ class SNMPClient:
             return True, "CONNECTED", latency
         except Exception as e:
             return False, f"ERROR ({str(e)})", 0.0
-        finally:
-            try:
-                engine.close_engine()
-            except Exception:
-                pass

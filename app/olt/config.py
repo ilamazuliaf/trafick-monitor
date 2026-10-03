@@ -15,8 +15,8 @@ class OLTConfig:
     olt_port: int = 161
     snmp_version: str = "2c"
     snmp_community: str = "public"
-    snmp_timeout: float = 5.0
-    snmp_retries: int = 2
+    snmp_timeout: float = 3.0
+    snmp_retries: int = 1
     rx_power_threshold: float = -25.0
     rx_power_scale: float = 100.0
     oid_ont_status: str = ""
@@ -77,14 +77,14 @@ class OLTConfig:
         snmp_community = get_val("OLT_SNMP_COMMUNITY", "public")
 
         try:
-            snmp_timeout = float(get_val("SNMP_TIMEOUT", "5.0"))
+            snmp_timeout = float(get_val("SNMP_TIMEOUT", "3.0"))
         except ValueError:
-            snmp_timeout = 5.0
+            snmp_timeout = 3.0
 
         try:
-            snmp_retries = int(get_val("SNMP_RETRIES", "2"))
+            snmp_retries = int(get_val("SNMP_RETRIES", "1"))
         except ValueError:
-            snmp_retries = 2
+            snmp_retries = 1
 
         try:
             rx_power_threshold = float(get_val("OLT_RX_POWER_THRESHOLD", "-25.0"))
