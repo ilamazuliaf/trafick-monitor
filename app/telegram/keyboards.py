@@ -19,6 +19,7 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🔌 Cek ONT Putus", callback_data="btn_cek_putus"),
             InlineKeyboardButton("📶 Cek Redaman", callback_data="btn_cek_redaman")
         ],
+        [InlineKeyboardButton("🔍 Cek Data Pelanggan", callback_data="btn_cek_pelanggan")],
         [InlineKeyboardButton("👥 Data Pelanggan", callback_data="btn_pelanggan_menu")],
         [InlineKeyboardButton("📊 Traffic Monitor", callback_data="btn_traffic_status")]
     ]

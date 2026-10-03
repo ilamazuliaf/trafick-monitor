@@ -116,3 +116,69 @@ def test_pppoe_check_isolated_customers(monkeypatch):
     assert "isolir01" in report
     assert "10.127.0.15" in report
 
+
+from app.services.pppoe_service import (
+    get_unregistered_active_customers,
+    format_cek_pelanggan_report
+)
+
+
+def test_unregistered_active_customers_all_registered():
+    CustomerRepository.create_customer(CustomerCreate(username="user01", customer_name="User Satu"))
+    CustomerRepository.create_customer(CustomerCreate(username="user02", customer_name="User Dua"))
+
+    mock_client = MagicMock()
+    mock_client.get_active_pppoe_sessions.return_value = [
+        {"name": "user01", "address": "10.10.10.2", "caller_id": "aa:bb", "uptime": "1d", "service": "pppoe"},
+        {"name": "user02", "address": "10.10.10.3", "caller_id": "cc:dd", "uptime": "2d", "service": "pppoe"}
+    ]
+
+    result = get_unregistered_active_customers(client=mock_client)
+    assert result["status"] == "ok"
+    assert result["total_active"] == 2
+    assert result["total_db"] == 2
+    assert result["registered_active_count"] == 2
+    assert result["unregistered_count"] == 0
+    assert len(result["unregistered_sessions"]) == 0
+
+    report_msgs = format_cek_pelanggan_report(result)
+    assert len(report_msgs) == 1
+    assert "SEMUA PELANGGAN AKTIF TERDAFTAR DI DATABASE" in report_msgs[0]
+
+
+def test_unregistered_active_customers_some_unregistered():
+    CustomerRepository.create_customer(CustomerCreate(username="user01", customer_name="User Satu"))
+
+    mock_client = MagicMock()
+    mock_client.get_active_pppoe_sessions.return_value = [
+        {"name": "user01", "address": "10.10.10.2", "caller_id": "aa:bb", "uptime": "1d", "service": "pppoe"},
+        {"name": "unknown_user", "address": "10.10.10.99", "caller_id": "ee:ff", "uptime": "5m", "service": "pppoe"}
+    ]
+
+    result = get_unregistered_active_customers(client=mock_client)
+    assert result["status"] == "ok"
+    assert result["total_active"] == 2
+    assert result["total_db"] == 1
+    assert result["registered_active_count"] == 1
+    assert result["unregistered_count"] == 1
+    assert result["unregistered_sessions"][0]["name"] == "unknown_user"
+
+    report_msgs = format_cek_pelanggan_report(result)
+    assert len(report_msgs) == 1
+    assert "PELANGGAN AKTIF TIDAK TERDAFTAR DI DATABASE" in report_msgs[0]
+    assert "unknown_user" in report_msgs[0]
+    assert "10.10.10.99" in report_msgs[0]
+
+
+def test_unregistered_active_customers_mikrotik_error():
+    mock_client = MagicMock()
+    mock_client.get_active_pppoe_sessions.side_effect = Exception("Connection timed out")
+
+    result = get_unregistered_active_customers(client=mock_client)
+    assert result["status"] == "mikrotik_error"
+
+    report_msgs = format_cek_pelanggan_report(result)
+    assert len(report_msgs) == 1
+    assert "GAGAL MENGECEK DATA PELANGGAN" in report_msgs[0]
+
+

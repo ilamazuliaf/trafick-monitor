@@ -237,3 +237,149 @@ def format_cek_isolir_report(report: Dict[str, Any]) -> str:
     lines.append(f"Total Terisolir: {total} pelanggan")
     return "\n".join(lines)
 
+
+def get_unregistered_active_customers(client: Optional[MikrotikClient] = None) -> Dict[str, Any]:
+    """
+    Fetches active RouterOS PPPoE sessions from /ppp/active/print and compares them
+    against all registered customers in the database.
+    Identifies active sessions in MikroTik that are NOT found in the database.
+    """
+    db_customers = CustomerRepository.get_customers()
+    db_usernames = {
+        c.username.strip().lower()
+        for c in db_customers
+        if c.username and c.username.strip()
+    }
+
+    close_client = False
+    if client is None:
+        client = MikrotikClient()
+        close_client = True
+
+    try:
+        active_sessions = client.get_active_pppoe_sessions()
+    except Exception as e:
+        logger.error(f"MikroTik connection/query failed during active ppp check: {e}")
+        return {
+            "status": "mikrotik_error",
+            "host": f"{client.host}:{client.port}",
+            "error": str(e),
+            "message": (
+                "⚠️ GAGAL MENGECEK DATA PELANGGAN\n\n"
+                "MikroTik tidak dapat dihubungi.\n\n"
+                f"Host:\n{client.host}:{client.port}\n\n"
+                "Status:\nConnection failed"
+            )
+        }
+    finally:
+        if close_client and client:
+            client.close()
+
+    unregistered_sessions = [
+        sess for sess in active_sessions
+        if sess.get("name", "").strip().lower() not in db_usernames
+    ]
+
+    total_active = len(active_sessions)
+    total_db = len(db_customers)
+    unregistered_count = len(unregistered_sessions)
+    registered_active_count = total_active - unregistered_count
+
+    return {
+        "status": "ok",
+        "timestamp": datetime.now().strftime("%d-%m-%Y %H:%M"),
+        "total_active": total_active,
+        "total_db": total_db,
+        "registered_active_count": registered_active_count,
+        "unregistered_count": unregistered_count,
+        "unregistered_sessions": unregistered_sessions
+    }
+
+
+def format_cek_pelanggan_report(report: Dict[str, Any], max_length: int = 3800) -> List[str]:
+    """
+    Formats unregistered active customer report into Telegram messages with pagination if needed.
+    """
+    status = report.get("status")
+    if status == "mikrotik_error":
+        return [report.get("message", "⚠️ GAGAL MENGECEK DATA PELANGGAN")]
+
+    total_active = report.get("total_active", 0)
+    total_db = report.get("total_db", 0)
+    registered_active = report.get("registered_active_count", 0)
+    unregistered_count = report.get("unregistered_count", 0)
+    timestamp = report.get("timestamp", datetime.now().strftime("%d-%m-%Y %H:%M"))
+    sessions = report.get("unregistered_sessions", [])
+
+    if unregistered_count == 0:
+        return [
+            "🟢 SEMUA PELANGGAN AKTIF TERDAFTAR DI DATABASE\n\n"
+            f"Waktu: {timestamp}\n\n"
+            f"Total Aktif di MikroTik : {total_active}\n"
+            f"Total di Database       : {total_db}\n"
+            f"Aktif Terdaftar         : {registered_active}\n"
+            f"Tidak Terdaftar         : 0\n\n"
+            "Semua pelanggan yang aktif di MikroTik sudah terdata di database."
+        ]
+
+    header = (
+        "⚠️ PELANGGAN AKTIF TIDAK TERDAFTAR DI DATABASE\n\n"
+        f"Waktu: {timestamp}\n\n"
+        f"Total Aktif di MikroTik : {total_active}\n"
+        f"Total di Database       : {total_db}\n"
+        f"Aktif Terdaftar         : {registered_active}\n"
+        f"Tidak Terdaftar         : {unregistered_count}\n\n"
+        "Daftar Pelanggan (Tidak ada di database):"
+    )
+
+    blocks: List[str] = []
+    for idx, sess in enumerate(sessions, start=1):
+        name = sess.get("name", "-")
+        ip_addr = sess.get("address") or "-"
+        caller_id = sess.get("caller_id") or "-"
+        uptime = sess.get("uptime") or "-"
+        service = sess.get("service") or "-"
+        block = (
+            f"{idx}. Username : {name}\n"
+            f"   IP       : {ip_addr}\n"
+            f"   Caller ID: {caller_id}\n"
+            f"   Uptime   : {uptime}\n"
+            f"   Service  : {service}"
+        )
+        blocks.append(block)
+
+    footer = f"Total Tidak Terdaftar: {unregistered_count} pelanggan"
+
+    # Paginate blocks
+    pages_blocks: List[List[str]] = []
+    current_page: List[str] = []
+    current_len = len(header) + len(footer) + 10
+
+    for block in blocks:
+        block_len = len(block) + 2
+        if current_page and (current_len + block_len > max_length):
+            pages_blocks.append(current_page)
+            current_page = [block]
+            current_len = len(header) + len(footer) + 10 + block_len
+        else:
+            current_page.append(block)
+            current_len += block_len
+
+    if current_page:
+        pages_blocks.append(current_page)
+
+    total_pages = len(pages_blocks)
+    if total_pages <= 1:
+        content = "\n\n".join(pages_blocks[0]) if pages_blocks else ""
+        return [f"{header}\n\n{content}\n\n{footer}"]
+
+    result_messages: List[str] = []
+    for idx, page in enumerate(pages_blocks, start=1):
+        page_header = f"📄 Bagian {idx}/{total_pages}\n\n{header}"
+        content = "\n\n".join(page)
+        msg = f"{page_header}\n\n{content}\n\n{footer}"
+        result_messages.append(msg)
+
+    return result_messages
+
+

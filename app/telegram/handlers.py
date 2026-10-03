@@ -14,7 +14,9 @@ from app.services.pppoe_service import (
     get_offline_customers,
     format_cek_off_report,
     get_isolated_customers,
-    format_cek_isolir_report
+    format_cek_isolir_report,
+    get_unregistered_active_customers,
+    format_cek_pelanggan_report
 )
 from app.telegram.keyboards import (
     get_main_menu_keyboard,
@@ -141,6 +143,25 @@ async def cmd_cek_isolir(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 @auth_required
+async def cmd_cek_pelanggan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handles /cek_pelanggan command. Compares MikroTik /ppp/active/print vs DB customers.
+    Displays active sessions in MikroTik that are not registered in the database.
+    """
+    placeholder = await update.message.reply_text("⏳ Sedang membandingkan data pelanggan MikroTik & database...")
+    try:
+        report = get_unregistered_active_customers()
+        msg_list = format_cek_pelanggan_report(report)
+        if msg_list:
+            await placeholder.edit_text(msg_list[0])
+            for m in msg_list[1:]:
+                await update.message.reply_text(m)
+    except Exception as e:
+        logger.error(f"Error executing /cek_pelanggan command: {e}", exc_info=True)
+        await placeholder.edit_text("❌ Terjadi kesalahan saat memeriksa data pelanggan.")
+
+
+@auth_required
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handles Inline Keyboard callback buttons.
@@ -181,6 +202,25 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             formatted_text,
             reply_markup=get_main_menu_keyboard()
         )
+
+    elif data == "btn_cek_pelanggan":
+        await query.edit_message_text("⏳ Sedang membandingkan data pelanggan MikroTik & database...")
+        try:
+            report = get_unregistered_active_customers()
+            msg_list = format_cek_pelanggan_report(report)
+            if msg_list:
+                await query.edit_message_text(
+                    msg_list[0],
+                    reply_markup=get_main_menu_keyboard()
+                )
+                for m in msg_list[1:]:
+                    await query.message.reply_text(m)
+        except Exception as e:
+            logger.error(f"Error executing btn_cek_pelanggan: {e}", exc_info=True)
+            await query.edit_message_text(
+                "❌ Terjadi kesalahan saat memeriksa data pelanggan.",
+                reply_markup=get_main_menu_keyboard()
+            )
 
     elif data == "btn_cek_putus":
         from app.olt.handlers import _get_olt_monitor

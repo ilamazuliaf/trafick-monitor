@@ -8,11 +8,12 @@ __pycache__/
 *$py.class
 .pytest_cache/
 
-# Virtual Environment
+# Virtual Environment & Node
 .venv/
 venv/
 ENV/
 env/
+node_modules/
 
 # Database & Data Directory
 data/*.db

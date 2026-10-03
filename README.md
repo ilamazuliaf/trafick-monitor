@@ -63,32 +63,56 @@ nano .env
 
 ---
 
-## 🤖 Telegram PPPoE Offline & Isolir Monitoring
+## 🤖 Telegram Bot Monitoring & Management
 
-Sistem terintegrasi dengan Telegram Bot untuk memantau pelanggan PPPoE yang offline maupun yang sedang ter-isolir berdasarkan subnet IP yang dikonfigurasi (`ISOLATED_IP_RANGE`).
+Sistem terintegrasi penuh dengan Telegram Bot untuk pemantauan koneksi PPPoE MikroTik, perbandingan data pelanggan lokal vs router, pemantauan OLT GPON/EPON, dan manajemen pelanggan berbasis Excel.
 
-### Command Telegram:
-- `/start` - Menampilkan menu utama Telegram Bot.
-- `/menu` - Menampilkan menu utama.
-- `/pelanggan` - Menampilkan menu manajemen data pelanggan PPPoE.
-- `/cek_off` - Memeriksa status koneksi pelanggan PPPoE yang sedang offline.
-- `/cek_isolir` - Memeriksa daftar pelanggan PPPoE yang mendapatkan IP isolir (misal `10.127.0.0/18`).
+### 📋 Daftar Command Telegram:
+- `/start` - Menampilkan menu interaktif utama (Inline Keyboard).
+- `/menu` - Membuka menu utama Telegram Bot.
+- `/cek_pelanggan` - Membandingkan data pelanggan di database lokal dengan sesi aktif di MikroTik (`/ppp/active/print`), menampilkan daftar pelanggan aktif di MikroTik yang belum terdaftar di database.
+- `/cek_off` - Memeriksa status pelanggan PPPoE yang sedang OFFLINE dengan membandingkan data pelanggan dipantau di database terhadap sesi aktif MikroTik.
+- `/cek_isolir` - Memeriksa daftar pelanggan PPPoE yang mendapatkan IP isolir berdasarkan subnet CIDR (`ISOLATED_IP_RANGE`).
+- `/pelanggan` - Menampilkan menu manajemen data pelanggan PPPoE (download template, export, import).
 - `/cek_putus` - Memeriksa daftar ONT berstatus OFFLINE dikelompokkan per PON (Modul OLT).
-- `/cek_redaman` - Memeriksa ONT dengan RX Power <= threshold redaman (Modul OLT).
-- `/olt_status` - Memeriksa status koneksi SNMP ke OLT (Modul OLT).
+- `/cek_redaman` - Memeriksa ONT dengan RX Power optik di bawah ambang batas / threshold redaman (Modul OLT).
+- `/olt_status` - Memeriksa status koneksi SNMP ke perangkat OLT (Modul OLT).
 
-### Fitur OLT SNMP Monitoring (Opsional):
-- **Monitoring status ONT**: Deteksi ONT offline per PON.
-- **Deteksi Redaman Tinggi**: Memantau sinyal optik RX Power terhadap threshold (misal `-25.0 dBm`).
-- **Multi-Vendor MIB Support**: Konfigurasi OID fleksibel (HSGQ, ZTE, Huawei, dll).
-- **Auto Pagination**: Otomatis memecah pesan jika melebihi limit Telegram (4096 karakter).
+### 🔍 Fitur & Kemampuan Telegram Bot:
 
+1. **Cek Data Pelanggan (`/cek_pelanggan` & Tombol "🔍 Cek Data Pelanggan")**:
+   - Membandingkan seluruh data pelanggan di database SQLite dengan sesi aktif PPPoE di MikroTik (`/ppp/active/print`).
+   - Mendeteksi user atau koneksi aktif liar/baru di MikroTik yang tidak tercatat di database lokal.
+   - Menampilkan detail user yang tidak terdaftar: Username, IP Address, Caller ID (MAC/Interface), Uptime koneksi, dan Tipe Service.
+   - Dilengkapi sistem auto-pagination jika jumlah daftar pelanggan melebihi batas karakter pesan Telegram.
 
-### Fitur Excel Pelanggan:
-- **Download Template Excel**: Mengunduh format `.xlsx` standar.
-- **Export Data Pelanggan**: Mengunduh seluruh data pelanggan dari SQLite ke `.xlsx`.
-- **Import / Update Excel**: Mengunggah kembali file `.xlsx` untuk menambah/memperbarui data pelanggan.
-- **Backup Otomatis**: Setiap import massal secara otomatis membuat backup database di `data/backups/`.
+2. **Monitoring PPPoE Offline & Isolir**:
+   - **Cek PPPoE OFF (`/cek_off`)**: Memantau pelanggan terdaftar yang koneksinya mati/putus.
+   - **Cek PPPoE Isolir (`/cek_isolir`)**: Mendeteksi pelanggan yang terisolir (mendapatkan IP isolir dari pool penagihan).
+
+3. **Manajemen Pelanggan via Excel (`/pelanggan`)**:
+   - **Download Template Excel**: Mengunduh file `.xlsx` template standar yang siap diisi.
+   - **Export Data Pelanggan**: Mengunduh seluruh database pelanggan ke file Excel `.xlsx`.
+   - **Import / Update Excel**: Mengunggah file Excel `.xlsx` langsung ke chat bot untuk menambah dan memperbarui data pelanggan, lengkap dengan validasi data dan pratinjau (preview).
+   - **Backup Otomatis**: Setiap proses import otomatis membuat salinan cadangan database di direktori `data/backups/`.
+
+4. **Monitoring OLT SNMP (GPON/EPON)**:
+   - **Cek ONT Putus (`/cek_putus`)**: Menampilkan daftar ONT offline per port PON.
+   - **Cek Redaman Tinggi (`/cek_redaman`)**: Menampilkan daftar ONT dengan sinyal optik RX yang buruk (redaman tinggi).
+   - **Status OLT (`/olt_status`)**: Mengecek status ketersediaan dan respon perangkat OLT via SNMP.
+
+5. **Monitoring Traffic Interface**:
+   - Melalui tombol `📊 Traffic Monitor` pada menu utama, Anda dapat melihat ringkasan kecepatan RX/TX realtime dari interface MikroTik yang dipantau.
+
+6. **Navigasi Interaktif (Inline Keyboard)**:
+   - Akses cepat sekali sentuh tanpa perlu mengetik command:
+     - `🔴 Cek PPPoE OFF`
+     - `🟡 Cek PPPoE Isolir`
+     - `🔌 Cek ONT Putus`
+     - `📶 Cek Redaman`
+     - `🔍 Cek Data Pelanggan`
+     - `👥 Data Pelanggan`
+     - `📊 Traffic Monitor`
 
 
 ## 💻 Running the Application

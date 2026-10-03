@@ -43,6 +43,7 @@ def test_get_main_menu_keyboard():
     assert "btn_cek_isolir" in callback_data_list
     assert "btn_cek_putus" in callback_data_list
     assert "btn_cek_redaman" in callback_data_list
+    assert "btn_cek_pelanggan" in callback_data_list
     assert "btn_pelanggan_menu" in callback_data_list
     assert "btn_traffic_status" in callback_data_list
 
@@ -67,6 +68,59 @@ def test_handle_callback_query_edit_in_place(monkeypatch):
 
     # Should edit message twice (first for loading status, second for final report)
     assert mock_query.edit_message_text.call_count == 2
+
+
+def test_cmd_cek_pelanggan(monkeypatch):
+    from app.telegram.handlers import cmd_cek_pelanggan
+
+    monkeypatch.setattr("app.core.config.settings.telegram_allowed_chat_ids_raw", "12345")
+    monkeypatch.setattr(
+        "app.telegram.handlers.get_unregistered_active_customers",
+        lambda: {"status": "ok", "unregistered_count": 0}
+    )
+    monkeypatch.setattr(
+        "app.telegram.handlers.format_cek_pelanggan_report",
+        lambda report: ["SEMUA PELANGGAN AKTIF TERDAFTAR"]
+    )
+
+    mock_update = MagicMock()
+    mock_update.effective_chat.id = 12345
+    mock_update.effective_user.id = 12345
+    mock_placeholder = MagicMock()
+    mock_placeholder.edit_text = AsyncMock()
+    mock_update.message.reply_text = AsyncMock(return_value=mock_placeholder)
+
+    asyncio.run(cmd_cek_pelanggan(mock_update, None))
+    mock_update.message.reply_text.assert_called_once()
+    mock_placeholder.edit_text.assert_called_once_with("SEMUA PELANGGAN AKTIF TERDAFTAR")
+
+
+def test_handle_callback_query_cek_pelanggan(monkeypatch):
+    from app.telegram.handlers import handle_callback_query
+
+    monkeypatch.setattr("app.core.config.settings.telegram_allowed_chat_ids_raw", "12345")
+    monkeypatch.setattr(
+        "app.telegram.handlers.get_unregistered_active_customers",
+        lambda: {"status": "ok", "unregistered_count": 0}
+    )
+    monkeypatch.setattr(
+        "app.telegram.handlers.format_cek_pelanggan_report",
+        lambda report: ["SEMUA PELANGGAN AKTIF TERDAFTAR"]
+    )
+
+    mock_update = MagicMock()
+    mock_update.effective_chat.id = 12345
+    mock_update.effective_user.id = 12345
+    mock_query = MagicMock()
+    mock_query.data = "btn_cek_pelanggan"
+    mock_query.answer = AsyncMock()
+    mock_query.edit_message_text = AsyncMock()
+    mock_update.callback_query = mock_query
+
+    asyncio.run(handle_callback_query(mock_update, None))
+
+    assert mock_query.edit_message_text.call_count == 2
+
 
 
 
