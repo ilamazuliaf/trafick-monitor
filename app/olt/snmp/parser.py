@@ -16,7 +16,13 @@ def clean_string_val(val: Any) -> str:
     """
     if val is None:
         return ""
-    s = str(val).strip()
+    if isinstance(val, bytes):
+        try:
+            s = val.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            s = val.hex().upper()
+    else:
+        s = str(val).strip()
 
     # Remove common prefixes
     for prefix in ("STRING:", "Hex-STRING:", "INTEGER:", "Gauge32:", "Counter32:", "Oid:"):
@@ -33,14 +39,24 @@ def clean_string_val(val: Any) -> str:
 
 def extract_oid_suffix(full_oid: str, root_oid: str) -> str:
     """
-    Extracts the suffix from a full OID by stripping root_oid.
+    Extracts the suffix from a full OID by stripping root_oid prefix.
     """
-    f_norm = full_oid.lstrip(".")
-    r_norm = root_oid.lstrip(".")
+    if not root_oid:
+        return full_oid.strip(".")
+
+    f_norm = full_oid.strip(".")
+    r_norm = root_oid.strip(".")
 
     if f_norm.startswith(r_norm):
-        suffix = f_norm[len(r_norm):].lstrip(".")
+        suffix = f_norm[len(r_norm):].strip(".")
         return suffix
+
+    parts = f_norm.split(".")
+    r_parts = r_norm.split(".")
+    if len(parts) > len(r_parts):
+        suffix = ".".join(parts[len(r_parts):])
+        return suffix.strip(".")
+
     return f_norm
 
 
@@ -62,37 +78,37 @@ def parse_pon_and_ont_id(suffix: str) -> Tuple[str, str, str]:
     Supports HSGQ 32-bit packed index (PRD Section 10).
     """
     base_s = get_base_suffix(suffix)
-
-    # Check if base_s is a pure integer (e.g. 16777473)
-    if base_s.isdigit():
-        idx = int(base_s)
-        if idx > 65535:
-            # Packed 32-bit integer: (Slot << 24) | (Reserved << 16) | (PON << 8) | ONT_ID
-            slot_num = (idx >> 24) & 0xFF
-            pon_num = (idx >> 8) & 0xFF
-            ont_id_num = idx & 0xFF
-
-            slot_str = str(slot_num) if slot_num > 0 else "1"
-            pon_str = f"1/1/{pon_num}" if slot_num == 1 or slot_num == 0 else f"{slot_str}/1/{pon_num}"
-            ont_id_str = str(ont_id_num)
-            return slot_str, pon_str, ont_id_str
-
-    # Dotted suffix e.g. "1.1.38" or "1.38" or "38"
     parts = [p for p in base_s.split(".") if p]
+
+    if parts:
+        last_p = parts[-1]
+        if last_p.isdigit():
+            idx = int(last_p)
+            if idx > 65535:
+                # Packed 32-bit integer: (Slot << 24) | (Reserved << 16) | (PON << 8) | ONT_ID
+                slot_num = (idx >> 24) & 0xFF
+                pon_num = (idx >> 8) & 0xFF
+                ont_id_num = idx & 0xFF
+
+                slot_str = str(slot_num) if slot_num > 0 else "1"
+                pon_str = f"1/1/{pon_num}" if slot_num == 1 or slot_num == 0 else f"{slot_str}/1/{pon_num}"
+                ont_id_str = str(ont_id_num)
+                return slot_str, pon_str, ont_id_str
+
     if len(parts) >= 3:
-        slot_str = parts[0]
-        pon_str = f"{parts[0]}/{parts[1]}"
-        ont_id_str = parts[2]
+        slot_str = parts[-3]
+        pon_str = f"{parts[-3]}/{parts[-2]}"
+        ont_id_str = parts[-1]
         return slot_str, pon_str, ont_id_str
     elif len(parts) == 2:
         slot_str = "1"
-        pon_str = f"1/1/{parts[0]}"
-        ont_id_str = parts[1]
+        pon_str = f"1/1/{parts[-2]}"
+        ont_id_str = parts[-1]
         return slot_str, pon_str, ont_id_str
     elif len(parts) == 1:
         slot_str = "1"
         pon_str = "1/1/1"
-        ont_id_str = parts[0]
+        ont_id_str = parts[-1]
         return slot_str, pon_str, ont_id_str
 
     return "1", "1/1/1", suffix
@@ -164,7 +180,6 @@ def parse_ont_table(
     s_map = serial_map or {}
     n_map = name_map or {}
 
-    # Build lookup dictionaries by base_suffix
     def build_suffix_dict(raw_dict: Dict[str, str], root_oid: str) -> Dict[str, str]:
         res = {}
         if not root_oid:
@@ -185,6 +200,8 @@ def parse_ont_table(
     ont_list: List[ONT] = []
 
     for full_oid, raw_status in status_map.items():
+        if not raw_status:
+            continue
         suffix = extract_oid_suffix(full_oid, config.oid_ont_status)
         base_s = get_base_suffix(suffix)
 

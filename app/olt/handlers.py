@@ -45,7 +45,7 @@ async def cek_putus_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             for m in msg_list[1:]:
                 await update.message.reply_text(m)
     except Exception as e:
-        logger.error(f"Error executing /cek_putus: {e}")
+        logger.error(f"Error executing /cek_putus: {e}", exc_info=True)
         await placeholder.edit_text("❌ Terjadi kesalahan saat memeriksa status ONT.")
 
 
@@ -74,7 +74,7 @@ async def cek_redaman_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             for m in msg_list[1:]:
                 await update.message.reply_text(m)
     except Exception as e:
-        logger.error(f"Error executing /cek_redaman: {e}")
+        logger.error(f"Error executing /cek_redaman: {e}", exc_info=True)
         await placeholder.edit_text("❌ Terjadi kesalahan saat memeriksa redaman ONT.")
 
 
@@ -102,5 +102,5 @@ async def olt_status_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         await placeholder.edit_text(formatted)
     except Exception as e:
-        logger.error(f"Error executing /olt_status: {e}")
+        logger.error(f"Error executing /olt_status: {e}", exc_info=True)
         await placeholder.edit_text("❌ Terjadi kesalahan saat memeriksa status OLT.")

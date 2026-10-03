@@ -25,4 +25,8 @@ data/*.sqlite3
 .DS_Store
 Thumbs.db
 
+# Logs
+logs/
+*.log
+
 prd.md
