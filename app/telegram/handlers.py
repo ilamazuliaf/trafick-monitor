@@ -168,7 +168,7 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text("⏳ Sedang memeriksa status PPPoE MikroTik...")
         report = get_offline_customers()
         formatted_text = format_cek_off_report(report)
-        await query.message.reply_text(
+        await query.edit_message_text(
             formatted_text,
             reply_markup=get_main_menu_keyboard()
         )
@@ -177,11 +177,66 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text("⏳ Sedang memeriksa pelanggan PPPoE isolir...")
         report = get_isolated_customers()
         formatted_text = format_cek_isolir_report(report)
-        await query.message.reply_text(
+        await query.edit_message_text(
             formatted_text,
             reply_markup=get_main_menu_keyboard()
         )
 
+    elif data == "btn_cek_putus":
+        from app.olt.handlers import _get_olt_monitor
+        from app.olt.messages import format_offline_onts_message
+
+        olt_monitor = _get_olt_monitor(context)
+        if not olt_monitor or not olt_monitor.config.enabled:
+            await query.edit_message_text("⚠️ Modul OLT tidak aktif.", reply_markup=get_main_menu_keyboard())
+        else:
+            await query.edit_message_text("⏳ Sedang memeriksa ONT putus...")
+            try:
+                offline_onts = await olt_monitor.get_offline_onts()
+                msg_list = format_offline_onts_message(offline_onts, olt_monitor.config.olt_name)
+                if msg_list:
+                    await query.edit_message_text(
+                        msg_list[0],
+                        reply_markup=get_main_menu_keyboard()
+                    )
+                    for m in msg_list[1:]:
+                        await query.message.reply_text(m)
+            except Exception as e:
+                logger.error(f"Error executing btn_cek_putus: {e}", exc_info=True)
+                await query.edit_message_text(
+                    "❌ Terjadi kesalahan saat memeriksa status ONT.",
+                    reply_markup=get_main_menu_keyboard()
+                )
+
+    elif data == "btn_cek_redaman":
+        from app.olt.handlers import _get_olt_monitor
+        from app.olt.messages import format_high_attenuation_message
+
+        olt_monitor = _get_olt_monitor(context)
+        if not olt_monitor or not olt_monitor.config.enabled:
+            await query.edit_message_text("⚠️ Modul OLT tidak aktif.", reply_markup=get_main_menu_keyboard())
+        else:
+            await query.edit_message_text("⏳ Sedang memeriksa redaman ONT...")
+            try:
+                high_atten = await olt_monitor.get_high_attenuation_onts()
+                msg_list = format_high_attenuation_message(
+                    high_atten,
+                    olt_monitor.config.olt_name,
+                    olt_monitor.config.rx_power_threshold,
+                )
+                if msg_list:
+                    await query.edit_message_text(
+                        msg_list[0],
+                        reply_markup=get_main_menu_keyboard()
+                    )
+                    for m in msg_list[1:]:
+                        await query.message.reply_text(m)
+            except Exception as e:
+                logger.error(f"Error executing btn_cek_redaman: {e}", exc_info=True)
+                await query.edit_message_text(
+                    "❌ Terjadi kesalahan saat memeriksa redaman ONT.",
+                    reply_markup=get_main_menu_keyboard()
+                )
 
     elif data == "btn_traffic_status":
         from app.database.repository import TrafficRepository
@@ -198,7 +253,7 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             else:
                 summary_lines.append(f"🔹 *{iface}*: Belum ada data")
 
-        await query.message.reply_text(
+        await query.edit_message_text(
             "\n".join(summary_lines),
             parse_mode="Markdown",
             reply_markup=get_main_menu_keyboard()

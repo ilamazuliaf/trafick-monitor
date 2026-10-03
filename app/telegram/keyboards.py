@@ -15,6 +15,10 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🔴 Cek PPPoE OFF", callback_data="btn_cek_off"),
             InlineKeyboardButton("🟡 Cek PPPoE Isolir", callback_data="btn_cek_isolir")
         ],
+        [
+            InlineKeyboardButton("🔌 Cek ONT Putus", callback_data="btn_cek_putus"),
+            InlineKeyboardButton("📶 Cek Redaman", callback_data="btn_cek_redaman")
+        ],
         [InlineKeyboardButton("👥 Data Pelanggan", callback_data="btn_pelanggan_menu")],
         [InlineKeyboardButton("📊 Traffic Monitor", callback_data="btn_traffic_status")]
     ]
