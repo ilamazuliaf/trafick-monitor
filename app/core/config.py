@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str = Field(default="", validation_alias="TELEGRAM_BOT_TOKEN")
     telegram_allowed_chat_ids_raw: str = Field(default="", validation_alias="TELEGRAM_ALLOWED_CHAT_IDS")
     isolated_ip_range: str = Field(default="10.127.0.0/18", validation_alias="ISOLATED_IP_RANGE")
+    max_concurrent_tasks: int = Field(default=10, validation_alias="MAX_CONCURRENT_TASKS")
 
     # OLT SNMP Monitoring (Opsional)
     olt_enabled: bool = Field(default=False, validation_alias="OLT_ENABLED")

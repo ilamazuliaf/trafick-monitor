@@ -59,13 +59,19 @@ def test_olt_handlers_success(monkeypatch):
     mock_context = MagicMock()
     mock_context.bot_data = {"olt_monitor": mock_monitor}
 
-    # Test /cek_putus
-    asyncio.run(cek_putus_command(mock_update, mock_context))
-    placeholder_msg.edit_text.assert_called_once()
-    assert "🟢 ONT PUTUS" in placeholder_msg.edit_text.call_args[0][0]
+    # Test /cek_putus & /olt_status
+    async def _run():
+        task1 = await cek_putus_command(mock_update, mock_context)
+        if task1:
+            await task1
+        placeholder_msg.edit_text.assert_called_once()
+        assert "🟢 ONT PUTUS" in placeholder_msg.edit_text.call_args[0][0]
 
-    # Test /olt_status
-    placeholder_msg.edit_text.reset_mock()
-    asyncio.run(olt_status_command(mock_update, mock_context))
-    placeholder_msg.edit_text.assert_called_once()
-    assert "🟢 CONNECTED" in placeholder_msg.edit_text.call_args[0][0]
+        placeholder_msg.edit_text.reset_mock()
+        task2 = await olt_status_command(mock_update, mock_context)
+        if task2:
+            await task2
+        placeholder_msg.edit_text.assert_called_once()
+        assert "🟢 CONNECTED" in placeholder_msg.edit_text.call_args[0][0]
+
+    asyncio.run(_run())

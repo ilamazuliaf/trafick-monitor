@@ -30,7 +30,7 @@ class TelegramBotRunner:
 
         try:
             logger.info("Initializing Telegram Bot Application...")
-            builder = Application.builder().token(settings.telegram_bot_token)
+            builder = Application.builder().token(settings.telegram_bot_token).concurrent_updates(True)
             self.app = builder.build()
 
             # Register Command Handlers

@@ -2,6 +2,8 @@
 Telegram Handlers Module (tambah_fitur.md Section 11, 18, 19, 20, 21, 34-37)
 Defines command, callback, and document upload handlers for Telegram Bot.
 """
+import asyncio
+import uuid
 from functools import wraps
 from typing import Callable, Any
 from telegram import Update
@@ -9,6 +11,7 @@ from telegram.ext import ContextTypes
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.telegram.tasks import RequestContext, run_concurrent_task
 from app.database.repository import CustomerRepository, backup_database
 from app.services.pppoe_service import (
     get_offline_customers,
@@ -112,53 +115,118 @@ async def cmd_pelanggan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 @auth_required
-async def cmd_cek_off(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def cmd_cek_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Handles /cek_off command. Compares DB vs MikroTik active PPPoE.
+    Handles /cek_off command concurrently.
     (tambah_fitur.md Section 21 & 22)
     """
-    placeholder = await update.message.reply_text("⏳ Sedang memeriksa status PPPoE MikroTik...")
-    try:
-        report = get_offline_customers()
-        formatted_text = format_cek_off_report(report)
-        await placeholder.edit_text(formatted_text)
-    except Exception as e:
-        logger.error(f"Error executing /cek_off command: {e}")
-        await placeholder.edit_text("❌ Terjadi kesalahan saat memeriksa PPPoE.")
+    request_id = str(uuid.uuid4())
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id if update.effective_user else 0
+    username = update.effective_user.username if update.effective_user else None
+
+    placeholder = await update.message.reply_text(
+        f"⏳ Permintaan /cek_off sedang diproses...\nRequest ID: {request_id[:8]}"
+    )
+
+    req_context = RequestContext(
+        request_id=request_id,
+        chat_id=chat_id,
+        user_id=user_id,
+        command="/cek_off",
+        username=username
+    )
+
+    async def _worker():
+        report = await asyncio.to_thread(get_offline_customers)
+        return [format_cek_off_report(report)]
+
+    bot = context.bot if context else getattr(update, "_bot", None)
+    message_id = placeholder.message_id if hasattr(placeholder, "message_id") else None
+
+    return run_concurrent_task(
+        context=req_context,
+        worker_func=_worker,
+        bot=bot,
+        message_id=message_id,
+        placeholder=placeholder
+    )
 
 
 @auth_required
-async def cmd_cek_isolir(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def cmd_cek_isolir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Handles /cek_isolir command. Identifies PPPoE clients assigned IPs within ISOLATED_IP_RANGE.
+    Handles /cek_isolir command concurrently.
     """
-    placeholder = await update.message.reply_text("⏳ Sedang memeriksa pelanggan PPPoE isolir...")
-    try:
-        report = get_isolated_customers()
-        formatted_text = format_cek_isolir_report(report)
-        await placeholder.edit_text(formatted_text)
-    except Exception as e:
-        logger.error(f"Error executing /cek_isolir command: {e}")
-        await placeholder.edit_text("❌ Terjadi kesalahan saat memeriksa pelanggan isolir.")
+    request_id = str(uuid.uuid4())
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id if update.effective_user else 0
+    username = update.effective_user.username if update.effective_user else None
+
+    placeholder = await update.message.reply_text(
+        f"⏳ Permintaan /cek_isolir sedang diproses...\nRequest ID: {request_id[:8]}"
+    )
+
+    req_context = RequestContext(
+        request_id=request_id,
+        chat_id=chat_id,
+        user_id=user_id,
+        command="/cek_isolir",
+        username=username
+    )
+
+    async def _worker():
+        report = await asyncio.to_thread(get_isolated_customers)
+        return [format_cek_isolir_report(report)]
+
+    bot = context.bot if context else getattr(update, "_bot", None)
+    message_id = placeholder.message_id if hasattr(placeholder, "message_id") else None
+
+    return run_concurrent_task(
+        context=req_context,
+        worker_func=_worker,
+        bot=bot,
+        message_id=message_id,
+        placeholder=placeholder
+    )
 
 
 @auth_required
-async def cmd_cek_pelanggan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def cmd_cek_pelanggan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Handles /cek_pelanggan command. Compares MikroTik /ppp/active/print vs DB customers.
-    Displays active sessions in MikroTik that are not registered in the database.
+    Handles /cek_pelanggan command concurrently.
     """
-    placeholder = await update.message.reply_text("⏳ Sedang membandingkan data pelanggan MikroTik & database...")
-    try:
-        report = get_unregistered_active_customers()
-        msg_list = format_cek_pelanggan_report(report)
-        if msg_list:
-            await placeholder.edit_text(msg_list[0])
-            for m in msg_list[1:]:
-                await update.message.reply_text(m)
-    except Exception as e:
-        logger.error(f"Error executing /cek_pelanggan command: {e}", exc_info=True)
-        await placeholder.edit_text("❌ Terjadi kesalahan saat memeriksa data pelanggan.")
+    request_id = str(uuid.uuid4())
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id if update.effective_user else 0
+    username = update.effective_user.username if update.effective_user else None
+
+    placeholder = await update.message.reply_text(
+        f"⏳ Permintaan /cek_pelanggan sedang diproses...\nRequest ID: {request_id[:8]}"
+    )
+
+    req_context = RequestContext(
+        request_id=request_id,
+        chat_id=chat_id,
+        user_id=user_id,
+        command="/cek_pelanggan",
+        username=username
+    )
+
+    async def _worker():
+        report = await asyncio.to_thread(get_unregistered_active_customers)
+        return format_cek_pelanggan_report(report)
+
+    bot = context.bot if context else getattr(update, "_bot", None)
+    message_id = placeholder.message_id if hasattr(placeholder, "message_id") else None
+
+    return run_concurrent_task(
+        context=req_context,
+        worker_func=_worker,
+        bot=bot,
+        message_id=message_id,
+        placeholder=placeholder
+    )
 
 
 @auth_required
@@ -170,6 +238,7 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     await query.answer()
     data = query.data
+    bot = context.bot if context else getattr(update, "_bot", None)
 
     if data == "btn_main_menu":
         await query.edit_message_text(
@@ -186,41 +255,73 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         )
 
     elif data == "btn_cek_off":
-        await query.edit_message_text("⏳ Sedang memeriksa status PPPoE MikroTik...")
-        report = get_offline_customers()
-        formatted_text = format_cek_off_report(report)
-        await query.edit_message_text(
-            formatted_text,
-            reply_markup=get_main_menu_keyboard()
+        request_id = str(uuid.uuid4())
+        await query.edit_message_text(f"⏳ Sedang memeriksa status PPPoE MikroTik...\nRequest ID: {request_id[:8]}")
+        req_context = RequestContext(
+            request_id=request_id,
+            chat_id=update.effective_chat.id,
+            user_id=update.effective_user.id if update.effective_user else 0,
+            command="btn_cek_off",
+            username=update.effective_user.username if update.effective_user else None
+        )
+        async def _worker():
+            report = await asyncio.to_thread(get_offline_customers)
+            return [format_cek_off_report(report)]
+
+        return run_concurrent_task(
+            context=req_context,
+            worker_func=_worker,
+            bot=bot,
+            message_id=getattr(query.message, "message_id", None) if getattr(query, "message", None) else None,
+            reply_markup=get_main_menu_keyboard(),
+            query=query
         )
 
     elif data == "btn_cek_isolir":
-        await query.edit_message_text("⏳ Sedang memeriksa pelanggan PPPoE isolir...")
-        report = get_isolated_customers()
-        formatted_text = format_cek_isolir_report(report)
-        await query.edit_message_text(
-            formatted_text,
-            reply_markup=get_main_menu_keyboard()
+        request_id = str(uuid.uuid4())
+        await query.edit_message_text(f"⏳ Sedang memeriksa pelanggan PPPoE isolir...\nRequest ID: {request_id[:8]}")
+        req_context = RequestContext(
+            request_id=request_id,
+            chat_id=update.effective_chat.id,
+            user_id=update.effective_user.id if update.effective_user else 0,
+            command="btn_cek_isolir",
+            username=update.effective_user.username if update.effective_user else None
+        )
+        async def _worker():
+            report = await asyncio.to_thread(get_isolated_customers)
+            return [format_cek_isolir_report(report)]
+
+        return run_concurrent_task(
+            context=req_context,
+            worker_func=_worker,
+            bot=bot,
+            message_id=getattr(query.message, "message_id", None) if getattr(query, "message", None) else None,
+            reply_markup=get_main_menu_keyboard(),
+            query=query
         )
 
     elif data == "btn_cek_pelanggan":
-        await query.edit_message_text("⏳ Sedang membandingkan data pelanggan MikroTik & database...")
-        try:
-            report = get_unregistered_active_customers()
-            msg_list = format_cek_pelanggan_report(report)
-            if msg_list:
-                await query.edit_message_text(
-                    msg_list[0],
-                    reply_markup=get_main_menu_keyboard()
-                )
-                for m in msg_list[1:]:
-                    await query.message.reply_text(m)
-        except Exception as e:
-            logger.error(f"Error executing btn_cek_pelanggan: {e}", exc_info=True)
-            await query.edit_message_text(
-                "❌ Terjadi kesalahan saat memeriksa data pelanggan.",
-                reply_markup=get_main_menu_keyboard()
-            )
+        request_id = str(uuid.uuid4())
+        await query.edit_message_text(f"⏳ Sedang membandingkan data pelanggan MikroTik & database...\nRequest ID: {request_id[:8]}")
+        req_context = RequestContext(
+            request_id=request_id,
+            chat_id=update.effective_chat.id,
+            user_id=update.effective_user.id if update.effective_user else 0,
+            command="btn_cek_pelanggan",
+            username=update.effective_user.username if update.effective_user else None
+        )
+        async def _worker():
+            report = await asyncio.to_thread(get_unregistered_active_customers)
+            return format_cek_pelanggan_report(report)
+
+        return run_concurrent_task(
+            context=req_context,
+            worker_func=_worker,
+            bot=bot,
+            message_id=getattr(query.message, "message_id", None) if getattr(query, "message", None) else None,
+            reply_markup=get_main_menu_keyboard(),
+            query=query
+        )
 
     elif data == "btn_cek_putus":
         from app.olt.handlers import _get_olt_monitor
@@ -230,23 +331,27 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         if not olt_monitor or not olt_monitor.config.enabled:
             await query.edit_message_text("⚠️ Modul OLT tidak aktif.", reply_markup=get_main_menu_keyboard())
         else:
-            await query.edit_message_text("⏳ Sedang memeriksa ONT putus...")
-            try:
+            request_id = str(uuid.uuid4())
+            await query.edit_message_text(f"⏳ Sedang memeriksa ONT putus...\nRequest ID: {request_id[:8]}")
+            req_context = RequestContext(
+                request_id=request_id,
+                chat_id=update.effective_chat.id,
+                user_id=update.effective_user.id if update.effective_user else 0,
+                command="btn_cek_putus",
+                username=update.effective_user.username if update.effective_user else None
+            )
+            async def _worker():
                 offline_onts = await olt_monitor.get_offline_onts()
-                msg_list = format_offline_onts_message(offline_onts, olt_monitor.config.olt_name)
-                if msg_list:
-                    await query.edit_message_text(
-                        msg_list[0],
-                        reply_markup=get_main_menu_keyboard()
-                    )
-                    for m in msg_list[1:]:
-                        await query.message.reply_text(m)
-            except Exception as e:
-                logger.error(f"Error executing btn_cek_putus: {e}", exc_info=True)
-                await query.edit_message_text(
-                    "❌ Terjadi kesalahan saat memeriksa status ONT.",
-                    reply_markup=get_main_menu_keyboard()
-                )
+                return format_offline_onts_message(offline_onts, olt_monitor.config.olt_name)
+
+            return run_concurrent_task(
+                context=req_context,
+                worker_func=_worker,
+                bot=bot,
+                message_id=getattr(query.message, "message_id", None) if getattr(query, "message", None) else None,
+                reply_markup=get_main_menu_keyboard(),
+                query=query
+            )
 
     elif data == "btn_cek_redaman":
         from app.olt.handlers import _get_olt_monitor
@@ -256,47 +361,69 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         if not olt_monitor or not olt_monitor.config.enabled:
             await query.edit_message_text("⚠️ Modul OLT tidak aktif.", reply_markup=get_main_menu_keyboard())
         else:
-            await query.edit_message_text("⏳ Sedang memeriksa redaman ONT...")
-            try:
+            request_id = str(uuid.uuid4())
+            await query.edit_message_text(f"⏳ Sedang memeriksa redaman ONT...\nRequest ID: {request_id[:8]}")
+            req_context = RequestContext(
+                request_id=request_id,
+                chat_id=update.effective_chat.id,
+                user_id=update.effective_user.id if update.effective_user else 0,
+                command="btn_cek_redaman",
+                username=update.effective_user.username if update.effective_user else None
+            )
+            async def _worker():
                 high_atten = await olt_monitor.get_high_attenuation_onts()
-                msg_list = format_high_attenuation_message(
+                return format_high_attenuation_message(
                     high_atten,
                     olt_monitor.config.olt_name,
                     olt_monitor.config.rx_power_threshold,
                 )
-                if msg_list:
-                    await query.edit_message_text(
-                        msg_list[0],
-                        reply_markup=get_main_menu_keyboard()
-                    )
-                    for m in msg_list[1:]:
-                        await query.message.reply_text(m)
-            except Exception as e:
-                logger.error(f"Error executing btn_cek_redaman: {e}", exc_info=True)
-                await query.edit_message_text(
-                    "❌ Terjadi kesalahan saat memeriksa redaman ONT.",
-                    reply_markup=get_main_menu_keyboard()
-                )
+
+            return run_concurrent_task(
+                context=req_context,
+                worker_func=_worker,
+                bot=bot,
+                message_id=getattr(query.message, "message_id", None) if getattr(query, "message", None) else None,
+                reply_markup=get_main_menu_keyboard(),
+                query=query
+            )
 
     elif data == "btn_traffic_status":
         from app.database.repository import TrafficRepository
         from app.core.config import settings
 
-        ifaces = settings.monitored_interfaces
-        summary_lines = ["📊 *TRAFFIC MONITOR STATUS*\n"]
-        for iface in ifaces:
-            sample = TrafficRepository.get_latest_sample(iface)
-            if sample:
-                rx_mbps = round(sample.rx_bps / 1_000_000, 2)
-                tx_mbps = round(sample.tx_bps / 1_000_000, 2)
-                summary_lines.append(f"🔹 *{iface}*: RX {rx_mbps} Mbps | TX {tx_mbps} Mbps")
-            else:
-                summary_lines.append(f"🔹 *{iface}*: Belum ada data")
+        request_id = str(uuid.uuid4())
+        await query.edit_message_text(f"⏳ Mengambil data traffic...\nRequest ID: {request_id[:8]}")
+        req_context = RequestContext(
+            request_id=request_id,
+            chat_id=update.effective_chat.id,
+            user_id=update.effective_user.id if update.effective_user else 0,
+            command="btn_traffic_status",
+            username=update.effective_user.username if update.effective_user else None
+        )
+        def _get_traffic():
+            ifaces = settings.monitored_interfaces
+            summary_lines = ["📊 *TRAFFIC MONITOR STATUS*\n"]
+            for iface in ifaces:
+                sample = TrafficRepository.get_latest_sample(iface)
+                if sample:
+                    rx_mbps = round(sample.rx_bps / 1_000_000, 2)
+                    tx_mbps = round(sample.tx_bps / 1_000_000, 2)
+                    summary_lines.append(f"🔹 *{iface}*: RX {rx_mbps} Mbps | TX {tx_mbps} Mbps")
+                else:
+                    summary_lines.append(f"🔹 *{iface}*: Belum ada data")
+            return ["\n".join(summary_lines)]
 
-        await query.edit_message_text(
-            "\n".join(summary_lines),
+        async def _worker():
+            return await asyncio.to_thread(_get_traffic)
+
+        return run_concurrent_task(
+            context=req_context,
+            worker_func=_worker,
+            bot=bot,
+            message_id=getattr(query.message, "message_id", None) if getattr(query, "message", None) else None,
+            reply_markup=get_main_menu_keyboard(),
             parse_mode="Markdown",
-            reply_markup=get_main_menu_keyboard()
+            query=query
         )
 
     elif data == "btn_dl_template":

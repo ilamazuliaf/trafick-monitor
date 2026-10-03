@@ -64,10 +64,14 @@ def test_handle_callback_query_edit_in_place(monkeypatch):
     mock_query.edit_message_text = AsyncMock()
     mock_update.callback_query = mock_query
 
-    asyncio.run(handle_callback_query(mock_update, None))
+    async def _test():
+        task = await handle_callback_query(mock_update, None)
+        if task:
+            await task
+        # Should edit message twice (first for loading status, second for final report)
+        assert mock_query.edit_message_text.call_count == 2
 
-    # Should edit message twice (first for loading status, second for final report)
-    assert mock_query.edit_message_text.call_count == 2
+    asyncio.run(_test())
 
 
 def test_cmd_cek_pelanggan(monkeypatch):
@@ -87,12 +91,21 @@ def test_cmd_cek_pelanggan(monkeypatch):
     mock_update.effective_chat.id = 12345
     mock_update.effective_user.id = 12345
     mock_placeholder = MagicMock()
+    mock_placeholder.message_id = 999
     mock_placeholder.edit_text = AsyncMock()
     mock_update.message.reply_text = AsyncMock(return_value=mock_placeholder)
+    mock_context = MagicMock()
+    mock_context.bot.edit_message_text = AsyncMock()
 
-    asyncio.run(cmd_cek_pelanggan(mock_update, None))
-    mock_update.message.reply_text.assert_called_once()
-    mock_placeholder.edit_text.assert_called_once_with("SEMUA PELANGGAN AKTIF TERDAFTAR")
+    async def _test():
+        task = await cmd_cek_pelanggan(mock_update, mock_context)
+        if task:
+            await task
+        mock_update.message.reply_text.assert_called_once()
+        mock_placeholder.edit_text.assert_called_once()
+        assert "SEMUA PELANGGAN AKTIF TERDAFTAR" in mock_placeholder.edit_text.call_args[0][0]
+
+    asyncio.run(_test())
 
 
 def test_handle_callback_query_cek_pelanggan(monkeypatch):
@@ -114,12 +127,19 @@ def test_handle_callback_query_cek_pelanggan(monkeypatch):
     mock_query = MagicMock()
     mock_query.data = "btn_cek_pelanggan"
     mock_query.answer = AsyncMock()
+    mock_query.message.message_id = 101
     mock_query.edit_message_text = AsyncMock()
     mock_update.callback_query = mock_query
+    mock_context = MagicMock()
+    mock_context.bot.edit_message_text = AsyncMock()
 
-    asyncio.run(handle_callback_query(mock_update, None))
+    async def _test():
+        task = await handle_callback_query(mock_update, mock_context)
+        if task:
+            await task
+        assert mock_query.edit_message_text.call_count == 2
 
-    assert mock_query.edit_message_text.call_count == 2
+    asyncio.run(_test())
 
 
 
